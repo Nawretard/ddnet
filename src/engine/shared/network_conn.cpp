@@ -501,6 +501,17 @@ int CNetConnection::Feed(CNetPacketConstruct *pPacket, NETADDR *pAddr, SECURITY_
 	return 1;
 }
 
+void CNetConnection::SignalTimeout(const char *pReason)
+{
+	if(State() == EState::OFFLINE || State() == EState::ERROR)
+		return;
+	m_State = EState::ERROR;
+	SetError(pReason);
+	// The slot survives only while this holds too (network_server.cpp Update);
+	// the three statements are one state and must never be set apart.
+	m_TimeoutSituation = true;
+}
+
 int CNetConnection::Update()
 {
 	int64_t Now = time_get();
@@ -522,9 +533,7 @@ int CNetConnection::Update()
 	if(State() != EState::CONNECT &&
 		(Now - m_LastRecvTime) > time_freq() * g_Config.m_ConnTimeout)
 	{
-		m_State = EState::ERROR;
-		SetError("Timeout");
-		m_TimeoutSituation = true;
+		SignalTimeout("Timeout");
 	}
 
 	// fix resends
@@ -535,11 +544,9 @@ int CNetConnection::Update()
 		// check if we have some really old stuff laying around and abort if not acked
 		if(Now - pResend->m_FirstSendTime > time_freq() * g_Config.m_ConnTimeout)
 		{
-			m_State = EState::ERROR;
 			char aBuf[128];
 			str_format(aBuf, sizeof(aBuf), "Too weak connection (not acked for %d seconds)", g_Config.m_ConnTimeout);
-			SetError(aBuf);
-			m_TimeoutSituation = true;
+			SignalTimeout(aBuf);
 		}
 		else
 		{

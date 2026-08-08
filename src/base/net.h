@@ -302,6 +302,20 @@ int net_udp_recv(NETSOCKET sock, NETADDR *addr, unsigned char **data);
 bool net_udp_is_broken(NETSOCKET sock);
 
 /**
+ * Whether the transport still holds a live connection to this peer.
+ *
+ * @ingroup Network-UDP
+ *
+ * @param sock Socket to use.
+ * @param addr Address of the peer.
+ *
+ * @return `1` while the peer is reachable, `0` once a connection-oriented
+ * transport has lost it. Always `1` for datagram peers, which have no
+ * connection to lose — there, silence is the only signal.
+ */
+int net_udp_peer_connected(NETSOCKET sock, const NETADDR *addr);
+
+/**
  * Closes an UDP socket.
  *
  * @ingroup Network-UDP

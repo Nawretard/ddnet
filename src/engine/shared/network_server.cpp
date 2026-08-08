@@ -122,6 +122,17 @@ void CNetServer::Update()
 
 	for(int i = 0; i < MaxClients(); i++)
 	{
+		// A connection-oriented transport knows its peer is gone the moment the
+		// socket dies, and cannot say so in a packet: it holds neither the
+		// security token nor the sequence CNetConnection::Feed validates. So it
+		// is asked. Without this the slot waits out conn_timeout, and a browser
+		// reloads a hundred times sooner than that — losing the tee it was
+		// entitled to reclaim.
+		if(m_aSlots[i].m_Connection.State() == CNetConnection::EState::ONLINE &&
+			!net_udp_peer_connected(m_Socket, m_aSlots[i].m_Connection.PeerAddress()))
+		{
+			m_aSlots[i].m_Connection.SignalTimeout("Connection closed");
+		}
 		m_aSlots[i].m_Connection.Update();
 		if(m_aSlots[i].m_Connection.State() == CNetConnection::EState::ERROR &&
 			(!m_aSlots[i].m_Connection.m_TimeoutProtected ||

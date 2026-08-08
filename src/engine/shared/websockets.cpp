@@ -146,9 +146,6 @@ static int websocket_protocol_callback(lws *wsi, enum lws_callback_reasons reaso
 		char addr_str[NETADDR_MAXSTRSIZE];
 		net_addr_str(&pss->addr, addr_str, sizeof(addr_str), true);
 		log_trace("websockets", "Connection closed with '%s'", addr_str);
-
-		static const unsigned char CLOSE_PACKET[] = {0x10, 0x0e, 0x00, 0x04};
-		receive_chunk(ctx_data, pss, &CLOSE_PACKET, sizeof(CLOSE_PACKET));
 		return 0;
 	}
 
@@ -342,6 +339,16 @@ int websocket_recv(int socket, unsigned char *data, size_t maxsize, NETADDR *add
 		chunk->read += maxsize;
 		return maxsize;
 	}
+}
+
+int websocket_peer_connected(int socket, const NETADDR *addr)
+{
+	lws_context *context = websocket_context(socket);
+	context_data *ctx_data = contexts_map[context];
+	// find(), never operator[]: this is asked once per connection per tick and
+	// must not insert an entry for every address it is handed.
+	const auto peer = ctx_data->port_map.find(*addr);
+	return peer != ctx_data->port_map.end() && peer->second != nullptr && peer->second->wsi != nullptr;
 }
 
 int websocket_send(int socket, const unsigned char *data, size_t size, const NETADDR *addr)
