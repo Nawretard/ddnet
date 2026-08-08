@@ -1221,6 +1221,23 @@ int net_udp_recv(NETSOCKET sock, NETADDR *addr, unsigned char **data)
 	return bytes < 0 ? -1 : 0;
 }
 
+int net_udp_peer_connected(NETSOCKET sock, const NETADDR *addr)
+{
+#if defined(CONF_WEBSOCKETS)
+	if((addr->type & NETTYPE_WEBSOCKET_IPV4) && sock->web_ipv4sock >= 0)
+	{
+		return websocket_peer_connected(sock->web_ipv4sock, addr);
+	}
+	if((addr->type & NETTYPE_WEBSOCKET_IPV6) && sock->web_ipv6sock >= 0)
+	{
+		return websocket_peer_connected(sock->web_ipv6sock, addr);
+	}
+#endif
+	// A datagram peer has no connection to lose, so nothing here can say it is
+	// gone: silence is the only signal, and the timeout path owns that.
+	return 1;
+}
+
 void net_udp_close(NETSOCKET sock)
 {
 	priv_net_close_all_sockets(sock);

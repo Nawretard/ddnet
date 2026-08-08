@@ -307,6 +307,9 @@ public:
 	int Connect(const NETADDR *pAddr, int NumAddrs);
 	int Connect7(const NETADDR *pAddr, int NumAddrs);
 	void Disconnect(const char *pReason);
+	// Enter the timeout situation now: the errored-but-held state that
+	// /timeout reclaims from, and that only conn_timeout used to produce.
+	void SignalTimeout(const char *pReason);
 
 	int Update();
 	int Flush();
