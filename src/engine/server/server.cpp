@@ -1929,6 +1929,9 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 			{
 				return;
 			}
+			// A client may send fewer ints than an input holds. The rest must not be
+			// whatever the previous owner of this slot left in it.
+			mem_zero(pInput->m_aData + Size / (int)sizeof(int32_t), sizeof(pInput->m_aData) - Size);
 
 			if(g_Config.m_SvPreInput &&
 				IntendedTick <= Tick() + 4 * TickSpeed() + 1 &&
