@@ -165,6 +165,7 @@ void CCharacterCore::Reset()
 	m_JumpedTotal = 0;
 	m_Jumps = 2;
 	m_TriggeredEvents = 0;
+	m_GravityDown = GRAVITY_DOWN;
 
 	// DDNet Character
 	m_Solo = false;
@@ -199,10 +200,13 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	m_TriggeredEvents = 0;
 
 	// get ground state
-	const bool Grounded = StandsOnSurface(m_pCollision, m_Pos, PhysicalSizeVec2(), GRAVITY_DOWN);
+	const bool Grounded = StandsOnSurface(m_pCollision, m_Pos, PhysicalSizeVec2(), m_GravityDown);
 	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
 
-	m_Vel.y += m_Tuning.m_Gravity;
+	const vec2 Down = m_GravityDown;
+	const vec2 Side = SideAxis(m_GravityDown);
+
+	AddAlong(m_Vel, Down, m_Tuning.m_Gravity);
 
 	float MaxSpeed = Grounded ? m_Tuning.m_GroundControlSpeed : m_Tuning.m_AirControlSpeed;
 	float Accel = Grounded ? m_Tuning.m_GroundControlAccel : m_Tuning.m_AirControlAccel;
@@ -238,7 +242,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 				if(Grounded && (!(m_Jumped & 2) || m_Jumps != 0))
 				{
 					m_TriggeredEvents |= COREEVENT_GROUND_JUMP;
-					m_Vel.y = -m_Tuning.m_GroundJumpImpulse;
+					SetAlong(m_Vel, Down, -m_Tuning.m_GroundJumpImpulse);
 					if(m_Jumps > 1)
 					{
 						m_Jumped |= 1;
@@ -252,7 +256,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 				else if(!(m_Jumped & 2))
 				{
 					m_TriggeredEvents |= COREEVENT_AIR_JUMP;
-					m_Vel.y = -m_Tuning.m_AirJumpImpulse;
+					SetAlong(m_Vel, Down, -m_Tuning.m_AirJumpImpulse);
 					m_Jumped |= 3;
 					m_JumpedTotal++;
 				}
@@ -295,11 +299,11 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 
 	// add the speed modification according to players wanted direction
 	if(m_Direction < 0)
-		m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Vel.x, -Accel);
+		SetAlong(m_Vel, Side, SaturatedAdd(-MaxSpeed, MaxSpeed, Along(m_Vel, Side), -Accel));
 	if(m_Direction > 0)
-		m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Vel.x, Accel);
+		SetAlong(m_Vel, Side, SaturatedAdd(-MaxSpeed, MaxSpeed, Along(m_Vel, Side), Accel));
 	if(m_Direction == 0)
-		m_Vel.x *= Friction;
+		ScaleAlong(m_Vel, Side, Friction);
 
 	// do hook
 	if(m_HookState == HOOK_IDLE)
@@ -431,15 +435,16 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 			vec2 HookVel = normalize(m_HookPos - m_Pos) * m_Tuning.m_HookDragAccel;
 			// the hook as more power to drag you up then down.
 			// this makes it easier to get on top of an platform
-			if(HookVel.y > 0)
-				HookVel.y *= 0.3f;
+			if(Along(HookVel, Down) > 0)
+				ScaleAlong(HookVel, Down, 0.3f);
 
 			// the hook will boost it's power if the player wants to move
 			// in that direction. otherwise it will dampen everything abit
-			if((HookVel.x < 0 && m_Direction < 0) || (HookVel.x > 0 && m_Direction > 0))
-				HookVel.x *= 0.95f;
+			const float HookSideways = Along(HookVel, Side);
+			if((HookSideways < 0 && m_Direction < 0) || (HookSideways > 0 && m_Direction > 0))
+				ScaleAlong(HookVel, Side, 0.95f);
 			else
-				HookVel.x *= 0.75f;
+				ScaleAlong(HookVel, Side, 0.75f);
 
 			vec2 NewVel = m_Vel + HookVel;
 
@@ -561,14 +566,16 @@ void SBodyContacts::OnContact(const SContact &Contact, vec2 *pVel, void *pUser)
 
 void CCharacterCore::Move()
 {
+	const vec2 Side = SideAxis(m_GravityDown);
+
 	float RampValue = VelocityRamp(length(m_Vel) * 50, m_Tuning.m_VelrampStart, m_Tuning.m_VelrampRange, m_Tuning.m_VelrampCurvature);
 
-	m_Vel.x = m_Vel.x * RampValue;
+	ScaleAlong(m_Vel, Side, RampValue);
 
 	vec2 NewPos = m_Pos;
 
 	vec2 OldVel = m_Vel;
-	SBodyContacts Contacts = {vec2(m_Tuning.m_GroundElasticityX, m_Tuning.m_GroundElasticityY)};
+	SBodyContacts Contacts = {vec2(m_Tuning.m_GroundElasticityX, m_Tuning.m_GroundElasticityY), m_GravityDown};
 	m_pCollision->MoveBox(&NewPos, &m_Vel, PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
 
 	if(Contacts.m_Grounded)
@@ -577,18 +584,20 @@ void CCharacterCore::Move()
 		m_JumpedTotal = 0;
 	}
 
+	const float SidewaysVel = Along(m_Vel, Side);
 	m_Colliding = 0;
-	if(m_Vel.x < 0.001f && m_Vel.x > -0.001f)
+	if(SidewaysVel < 0.001f && SidewaysVel > -0.001f)
 	{
-		if(OldVel.x > 0)
+		const float OldSidewaysVel = Along(OldVel, Side);
+		if(OldSidewaysVel > 0)
 			m_Colliding = 1;
-		else if(OldVel.x < 0)
+		else if(OldSidewaysVel < 0)
 			m_Colliding = 2;
 	}
 	else
 		m_LeftWall = true;
 
-	m_Vel.x = m_Vel.x * (1.0f / RampValue);
+	ScaleAlong(m_Vel, Side, 1.0f / RampValue);
 
 	if(m_pWorld && (m_Super || (m_Tuning.m_PlayerCollision && !m_CollisionDisabled && !m_Solo)))
 	{

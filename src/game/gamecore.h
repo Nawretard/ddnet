@@ -189,6 +189,47 @@ constexpr float GROUND_REACH = 5.0f;
 // the geometric half of the question; CCharacter::IsGrounded also accepts a blocking tile.
 bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, vec2 Down);
 
+// The axis a body moves along under left/right input: perpendicular to its down,
+// pointing right when down points down.
+inline vec2 SideAxis(vec2 Down)
+{
+	return vec2(Down.y, -Down.x);
+}
+
+// Reading and writing one component of a vector along an axis. The axis is one of the
+// four cardinals here, so touching the single component it names is exact where the
+// general dot product would round.
+inline float Along(vec2 V, vec2 Axis)
+{
+	return Axis.x != 0.0f ? Axis.x * V.x : Axis.y * V.y;
+}
+
+inline void SetAlong(vec2 &V, vec2 Axis, float Value)
+{
+	if(Axis.x != 0.0f)
+		V.x = Axis.x * Value;
+	else
+		V.y = Axis.y * Value;
+}
+
+inline void AddAlong(vec2 &V, vec2 Axis, float Value)
+{
+	if(Axis.x != 0.0f)
+		V.x += Axis.x * Value;
+	else
+		V.y += Axis.y * Value;
+}
+
+// Scaling ignores which way the axis points: a component times a factor is the same
+// number whichever end of the axis you measure it from.
+inline void ScaleAlong(vec2 &V, vec2 Axis, float Factor)
+{
+	if(Axis.x != 0.0f)
+		V.x *= Factor;
+	else
+		V.y *= Factor;
+}
+
 // A surface answers with the elasticity of the axis its normal lies on.
 inline float ElasticityAlong(vec2 Normal, vec2 Elasticity)
 {
@@ -260,6 +301,9 @@ public:
 
 	int m_Direction;
 	int m_Angle;
+
+	// The way this body falls. Every axis its physics uses is derived from it.
+	vec2 m_GravityDown;
 	CNetObj_PlayerInput m_Input;
 
 	int m_TriggeredEvents;

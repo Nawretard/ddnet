@@ -250,3 +250,43 @@ TEST(GameCore, OneFootOnTheLedgeIsEnough)
 	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(85.0f, 173.0f), Size, GRAVITY_DOWN));
 	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(120.0f, 173.0f), Size, GRAVITY_DOWN));
 }
+
+namespace {
+
+vec2 VelocityAfterOneHookedTick(CAsciiWorld &World, CWorldCore *pWorldCore, vec2 Pos, vec2 HookPos, int Direction)
+{
+	CCharacterCore Core = SpawnedAt(pWorldCore, World.Collision(), Pos);
+	Core.m_Input.m_Hook = 1;
+	Core.m_Input.m_Direction = Direction;
+	Core.m_HookState = HOOK_GRABBED;
+	Core.m_HookPos = HookPos;
+	Core.Tick(true);
+	return Core.m_Vel;
+}
+
+constexpr vec2 MID_ROOM = vec2(160.0f, 112.0f);
+
+} // namespace
+
+TEST(GameCore, TheHookPullsAgainstGravityHarderThanWithIt)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+
+	// Anchored straight up, the drag of 3 arrives whole against the gravity of 0.5.
+	EXPECT_EQ(VelocityAfterOneHookedTick(World, &WorldCore, MID_ROOM, vec2(160.0f, 50.0f), 0).y, -2.5f);
+	// Anchored straight down, it is cut to 0.3 of itself first.
+	EXPECT_EQ(VelocityAfterOneHookedTick(World, &WorldCore, MID_ROOM, vec2(160.0f, 174.0f), 0).y, 1.4000001f);
+}
+
+TEST(GameCore, TheHookIsDampenedLessWhenSteeringIntoIt)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	const vec2 ToTheRight = vec2(250.0f, 112.0f);
+
+	// Not steering: the drag of 3 keeps 0.75 of itself.
+	EXPECT_EQ(VelocityAfterOneHookedTick(World, &WorldCore, MID_ROOM, ToTheRight, 0).x, 2.25f);
+	// Steering into it: 0.95 of the drag, on top of the air control of 1.5.
+	EXPECT_EQ(VelocityAfterOneHookedTick(World, &WorldCore, MID_ROOM, ToTheRight, 1).x, 4.3499999f);
+}
