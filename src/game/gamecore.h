@@ -242,6 +242,14 @@ constexpr float GROUND_REACH = 5.0f;
 // the geometric half of the question; CCharacter::IsGrounded also accepts a blocking tile.
 bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down);
 
+// A direction the body expressed in its own frame, brought back into the world's:
+// the body's +x is its Side and its +y its Down. Exactly the identity when the body
+// falls down, so nothing an ordinary tee aims at rounds differently than it used to.
+inline vec2 FromBodyFrame(vec2 V, CDirection2 Down)
+{
+	return Down.Side().Unit() * V.x + Down.Unit() * V.y;
+}
+
 // Reading and writing one component of a vector along an axis.
 inline float Along(vec2 V, CDirection2 Axis)
 {

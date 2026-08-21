@@ -438,3 +438,70 @@ TEST(GameCore, AnInputThatAsksForNothingLeavesTheBodyOnTheGravityItHad)
 
 	EXPECT_EQ(Core.m_GravityDown.Unit(), vec2(-1.0f, 0.0f));
 }
+
+TEST(GameCore, ABodyFallingDownReadsItsOwnFrameAsTheWorlds)
+{
+	// The exactness the whole migration rests on: under normal gravity the change
+	// of frame must not move a single bit, or every aim upstream ever recorded
+	// would land somewhere else.
+	const CDirection2 Down = ResolveGravity(GRAVITY_DOWN);
+	for(const vec2 V : {vec2(1.0f, 0.0f), vec2(0.0f, -1.0f), vec2(137.699997f, -42.4000015f), vec2(-0.30000001f, 0.69999999f)})
+	{
+		EXPECT_EQ(FromBodyFrame(V, Down), V);
+	}
+}
+
+TEST(GameCore, AimingRightMeansTheBodysRightNotTheWorlds)
+{
+	// Down is the body's +y and Side its +x, so the frame turns whole rather than
+	// each axis on its own.
+	EXPECT_EQ(FromBodyFrame(vec2(1.0f, 0.0f), ResolveGravity(GRAVITY_UP)), vec2(-1.0f, 0.0f));
+	EXPECT_EQ(FromBodyFrame(vec2(0.0f, 1.0f), ResolveGravity(GRAVITY_UP)), vec2(0.0f, -1.0f));
+	// Falling right, the body's own right points up the screen.
+	EXPECT_EQ(FromBodyFrame(vec2(1.0f, 0.0f), ResolveGravity(GRAVITY_RIGHT)), vec2(0.0f, -1.0f));
+	EXPECT_EQ(FromBodyFrame(vec2(0.0f, 1.0f), ResolveGravity(GRAVITY_RIGHT)), vec2(1.0f, 0.0f));
+}
+
+namespace {
+
+vec2 HookDirectionAfterAiming(CAsciiWorld &World, CWorldCore *pWorldCore, EGravityPreset Preset, int AimX, int AimY)
+{
+	CCharacterCore Core = SpawnedAt(pWorldCore, World.Collision(), MID_ROOM);
+	Core.m_GravityDown = ResolveGravity(Preset);
+	Core.m_Input.m_Hook = 1;
+	Core.m_Input.m_TargetX = AimX;
+	Core.m_Input.m_TargetY = AimY;
+	Core.Tick(true);
+	return Core.m_HookDir;
+}
+
+} // namespace
+
+TEST(GameCore, TheHookIsThrownWhereTheBodyAimsNotWhereTheWorldDoes)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+
+	// The same "straight ahead, to my right" throws opposite ways in the world.
+	EXPECT_EQ(HookDirectionAfterAiming(World, &WorldCore, GRAVITY_DOWN, 100, 0), vec2(1.0f, 0.0f));
+	EXPECT_EQ(HookDirectionAfterAiming(World, &WorldCore, GRAVITY_UP, 100, 0), vec2(-1.0f, 0.0f));
+	// And "towards my feet" follows the feet.
+	EXPECT_EQ(HookDirectionAfterAiming(World, &WorldCore, GRAVITY_RIGHT, 0, 100), vec2(1.0f, 0.0f));
+}
+
+TEST(GameCore, TheAimAngleIsUnchangedForABodyFallingDown)
+{
+	// m_Angle crosses the wire and every client draws the arm from it, so the change
+	// of frame owes it the same integer upstream produced. This aim is one of the 22
+	// pairs in 4 million where computing the arc tangent in float rather than double
+	// lands on a different m_Angle -- upstream passes ints, which promote to double.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Input.m_TargetX = 646;
+	Core.m_Input.m_TargetY = -682;
+
+	Core.Tick(true);
+
+	EXPECT_EQ(Core.m_Angle, -207);
+}

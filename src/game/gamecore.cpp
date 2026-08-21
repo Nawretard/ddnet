@@ -208,10 +208,13 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 
 	// get ground state
 	const bool Grounded = StandsOnSurface(m_pCollision, m_Pos, PhysicalSizeVec2(), m_GravityDown);
-	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
 
 	const CDirection2 Down = m_GravityDown;
 	const CDirection2 Side = Down.Side();
+	// The aim arrives in the body's own frame: aiming right means the body's right,
+	// which is the world's left for a tee walking on the ceiling.
+	const vec2 Aim = FromBodyFrame(vec2(m_Input.m_TargetX, m_Input.m_TargetY), Down);
+	vec2 TargetDirection = normalize(Aim);
 
 	AddAlong(m_Vel, Down, m_Tuning.m_Gravity);
 
@@ -225,7 +228,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 		m_Direction = m_Input.m_Direction;
 
 		// setup angle
-		float TmpAngle = std::atan2(m_Input.m_TargetY, m_Input.m_TargetX);
+		float TmpAngle = std::atan2((double)Aim.y, (double)Aim.x);
 		if(TmpAngle < -(pi / 2.0f))
 		{
 			m_Angle = (int)((TmpAngle + (2.0f * pi)) * 256.0f);

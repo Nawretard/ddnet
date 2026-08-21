@@ -56,7 +56,7 @@ void CCharacter::HandleJetpack()
 	if(m_Core.m_ActiveWeapon < 0)
 		return;
 
-	vec2 Direction = normalize(vec2(m_LatestInput.m_TargetX, m_LatestInput.m_TargetY));
+	vec2 Direction = normalize(FromBodyFrame(vec2(m_LatestInput.m_TargetX, m_LatestInput.m_TargetY), m_Core.m_GravityDown));
 
 	bool FullAuto = false;
 	if(m_Core.m_ActiveWeapon == WEAPON_GRENADE || m_Core.m_ActiveWeapon == WEAPON_SHOTGUN || m_Core.m_ActiveWeapon == WEAPON_LASER)
@@ -265,7 +265,7 @@ void CCharacter::FireWeapon()
 		return;
 
 	DoWeaponSwitch();
-	vec2 Direction = normalize(vec2(m_LatestInput.m_TargetX, m_LatestInput.m_TargetY));
+	vec2 Direction = normalize(FromBodyFrame(vec2(m_LatestInput.m_TargetX, m_LatestInput.m_TargetY), m_Core.m_GravityDown));
 
 	bool FullAuto = false;
 	if(m_Core.m_ActiveWeapon == WEAPON_GRENADE || m_Core.m_ActiveWeapon == WEAPON_SHOTGUN || m_Core.m_ActiveWeapon == WEAPON_LASER)
