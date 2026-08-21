@@ -179,55 +179,62 @@ public:
 
 typedef std::function<void(int ClientId, bool DisallowReset)> FAntiPingInterfereCallback;
 
-// The one direction gravity currently takes. Phase A turns it into a value a body carries.
-constexpr vec2 GRAVITY_DOWN = vec2(0.0f, 1.0f);
+// A unit direction. The axis operations below read a component with a dot product, which
+// only measures one when the axis is normalized, so the only way in normalizes.
+class CDirection2
+{
+	vec2 m_Unit;
+
+	constexpr explicit CDirection2(vec2 Unit) :
+		m_Unit(Unit) {}
+
+public:
+	static CDirection2 Normalized(vec2 V) { return CDirection2(normalize(V)); }
+
+	vec2 Unit() const { return m_Unit; }
+
+	// Turning or flipping a unit vector leaves it unit, so neither renormalizes.
+	CDirection2 Opposite() const { return CDirection2(-m_Unit); }
+	// The axis a body moves along under left/right input, pointing right when this
+	// points down. It is a fixed quarter turn, so a body's left and right always
+	// follow its own down rather than the world's.
+	CDirection2 Side() const { return CDirection2(vec2(m_Unit.y, -m_Unit.x)); }
+};
+
+// The one direction gravity currently takes. Phase A3 turns it into a per-body choice.
+inline CDirection2 GravityDown() { return CDirection2::Normalized(vec2(0.0f, 1.0f)); }
 
 // How far past its feet a body still counts as standing on a surface.
 constexpr float GROUND_REACH = 5.0f;
 
 // Whether a surface facing against gravity is within reach of the body's feet. This is
 // the geometric half of the question; CCharacter::IsGrounded also accepts a blocking tile.
-bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, vec2 Down);
+bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down);
 
-// The axis a body moves along under left/right input: perpendicular to its down,
-// pointing right when down points down.
-inline vec2 SideAxis(vec2 Down)
+// Reading and writing one component of a vector along an axis.
+inline float Along(vec2 V, CDirection2 Axis)
 {
-	return vec2(Down.y, -Down.x);
+	return dot(V, Axis.Unit());
 }
 
-// Reading and writing one component of a vector along an axis. The axis is one of the
-// four cardinals here, so touching the single component it names is exact where the
-// general dot product would round.
-inline float Along(vec2 V, vec2 Axis)
+// Rebuilt from the axis and its perpendicular rather than by adding the difference to
+// V. Both are the same algebra, but only this one lands on the exact same float as the
+// hand-written `V.y = Value` when the axis is cardinal.
+inline void SetAlong(vec2 &V, CDirection2 Axis, float Value)
 {
-	return Axis.x != 0.0f ? Axis.x * V.x : Axis.y * V.y;
+	const vec2 Side = Axis.Side().Unit();
+	V = Side * dot(V, Side) + Axis.Unit() * Value;
 }
 
-inline void SetAlong(vec2 &V, vec2 Axis, float Value)
+inline void AddAlong(vec2 &V, CDirection2 Axis, float Value)
 {
-	if(Axis.x != 0.0f)
-		V.x = Axis.x * Value;
-	else
-		V.y = Axis.y * Value;
+	V += Axis.Unit() * Value;
 }
 
-inline void AddAlong(vec2 &V, vec2 Axis, float Value)
+inline void ScaleAlong(vec2 &V, CDirection2 Axis, float Factor)
 {
-	if(Axis.x != 0.0f)
-		V.x += Axis.x * Value;
-	else
-		V.y += Axis.y * Value;
-}
-
-// Scaling ignores which way the axis points: a component times a factor is the same
-// number whichever end of the axis you measure it from.
-inline void ScaleAlong(vec2 &V, vec2 Axis, float Factor)
-{
-	if(Axis.x != 0.0f)
-		V.x *= Factor;
-	else
-		V.y *= Factor;
+	const vec2 Side = Axis.Side().Unit();
+	V = Side * dot(V, Side) + Axis.Unit() * (dot(V, Axis.Unit()) * Factor);
 }
 
 // A surface answers with the elasticity of the axis its normal lies on.
@@ -247,7 +254,7 @@ void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel);
 struct SBodyContacts
 {
 	vec2 m_Elasticity;
-	vec2 m_Down = GRAVITY_DOWN;
+	CDirection2 m_Down = GravityDown();
 	bool m_Grounded = false;
 
 	static void OnContact(const SContact &Contact, vec2 *pVel, void *pUser);
@@ -303,7 +310,7 @@ public:
 	int m_Angle;
 
 	// The way this body falls. Every axis its physics uses is derived from it.
-	vec2 m_GravityDown;
+	CDirection2 m_GravityDown = GravityDown();
 	CNetObj_PlayerInput m_Input;
 
 	int m_TriggeredEvents;

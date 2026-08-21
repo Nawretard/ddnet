@@ -165,7 +165,7 @@ void CCharacterCore::Reset()
 	m_JumpedTotal = 0;
 	m_Jumps = 2;
 	m_TriggeredEvents = 0;
-	m_GravityDown = GRAVITY_DOWN;
+	m_GravityDown = GravityDown();
 
 	// DDNet Character
 	m_Solo = false;
@@ -203,8 +203,8 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	const bool Grounded = StandsOnSurface(m_pCollision, m_Pos, PhysicalSizeVec2(), m_GravityDown);
 	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
 
-	const vec2 Down = m_GravityDown;
-	const vec2 Side = SideAxis(m_GravityDown);
+	const CDirection2 Down = m_GravityDown;
+	const CDirection2 Side = Down.Side();
 
 	AddAlong(m_Vel, Down, m_Tuning.m_Gravity);
 
@@ -541,9 +541,9 @@ void CCharacterCore::TickDeferred()
 		m_Vel = normalize(m_Vel) * 6000;
 }
 
-bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, vec2 Down)
+bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down)
 {
-	return pCollision->ProbeFace(Pos, Size, -Down, GROUND_REACH, nullptr);
+	return pCollision->ProbeFace(Pos, Size, Down.Opposite().Unit(), GROUND_REACH, nullptr);
 }
 
 void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel)
@@ -560,13 +560,13 @@ void SBodyContacts::OnContact(const SContact &Contact, vec2 *pVel, void *pUser)
 	SBodyContacts *pThis = static_cast<SBodyContacts *>(pUser);
 	const bool Elastic = ElasticityAlong(Contact.Normal, pThis->m_Elasticity) > 0.0f;
 	BounceOffContact(Contact, pThis->m_Elasticity, pVel);
-	if(Elastic && dot(Contact.Normal, pThis->m_Down) < 0.0f)
+	if(Elastic && dot(Contact.Normal, pThis->m_Down.Unit()) < 0.0f)
 		pThis->m_Grounded = true;
 }
 
 void CCharacterCore::Move()
 {
-	const vec2 Side = SideAxis(m_GravityDown);
+	const CDirection2 Side = m_GravityDown.Side();
 
 	float RampValue = VelocityRamp(length(m_Vel) * 50, m_Tuning.m_VelrampStart, m_Tuning.m_VelrampRange, m_Tuning.m_VelrampCurvature);
 

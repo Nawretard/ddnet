@@ -218,8 +218,8 @@ TEST(GameCore, GroundReachesFivePixelsBelowTheFeet)
 	CAsciiWorld World = Room();
 	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
 
-	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(160.0f, 172.0f), Size, GRAVITY_DOWN));
-	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(160.0f, 173.0f), Size, GRAVITY_DOWN));
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(160.0f, 172.0f), Size, GravityDown()));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(160.0f, 173.0f), Size, GravityDown()));
 }
 
 TEST(GameCore, GroundIsWhicheverWayGravityPoints)
@@ -228,8 +228,8 @@ TEST(GameCore, GroundIsWhicheverWayGravityPoints)
 	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
 	const vec2 UnderTheCeiling = vec2(160.0f, 50.0f);
 
-	EXPECT_FALSE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, GRAVITY_DOWN));
-	EXPECT_TRUE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, -GRAVITY_DOWN));
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, GravityDown()));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, GravityDown().Opposite()));
 }
 
 TEST(GameCore, OneFootOnTheLedgeIsEnough)
@@ -247,8 +247,8 @@ TEST(GameCore, OneFootOnTheLedgeIsEnough)
 	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
 
 	// The floor ends at x 96: the left foot is over it, the right one is over nothing.
-	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(85.0f, 173.0f), Size, GRAVITY_DOWN));
-	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(120.0f, 173.0f), Size, GRAVITY_DOWN));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(85.0f, 173.0f), Size, GravityDown()));
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(120.0f, 173.0f), Size, GravityDown()));
 }
 
 namespace {
@@ -289,4 +289,65 @@ TEST(GameCore, TheHookIsDampenedLessWhenSteeringIntoIt)
 	EXPECT_EQ(VelocityAfterOneHookedTick(World, &WorldCore, MID_ROOM, ToTheRight, 0).x, 2.25f);
 	// Steering into it: 0.95 of the drag, on top of the air control of 1.5.
 	EXPECT_EQ(VelocityAfterOneHookedTick(World, &WorldCore, MID_ROOM, ToTheRight, 1).x, 4.3499999f);
+}
+
+TEST(GameCore, LeftAndRightFollowTheBodysOwnDown)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Upright = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	CCharacterCore Inverted = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Inverted.m_GravityDown = GravityDown().Opposite();
+	Upright.m_Input.m_Direction = 1;
+	Inverted.m_Input.m_Direction = 1;
+
+	Upright.Tick(true);
+	Inverted.Tick(true);
+
+	// The same input moves each body the same way in its own frame, which is opposite
+	// ways in the world's. Gravity mirrors with it.
+	EXPECT_EQ(Upright.m_Vel, vec2(1.5f, 0.5f));
+	EXPECT_EQ(Inverted.m_Vel, vec2(-1.5f, -0.5f));
+}
+
+TEST(GameCore, AGravityBuiltFromAnyLengthBehavesLikeTheUnitOne)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Unit = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	CCharacterCore Long = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Long.m_GravityDown = CDirection2::Normalized(vec2(0.0f, 5.0f));
+	Unit.m_Input.m_Direction = 1;
+	Long.m_Input.m_Direction = 1;
+
+	Unit.Tick(true);
+	Long.Tick(true);
+
+	// The direction only names a way to fall; how hard is the tuning's business.
+	EXPECT_EQ(Long.m_Vel, Unit.m_Vel);
+	EXPECT_EQ(Long.m_Vel, vec2(1.5f, 0.5f));
+}
+
+TEST(GameCore, SetAlongLandsExactlyOnTheValueItIsGiven)
+{
+	// A tee five ticks into a fall, then jumping. Writing the impulse as a difference
+	// added to the speed it already has misses it by 1e-6 at exactly this speed.
+	vec2 V(3.0f, 2.4000001f);
+
+	SetAlong(V, GravityDown(), -13.1999998f);
+
+	EXPECT_EQ(V.y, -13.1999998f);
+	EXPECT_EQ(V.x, 3.0f);
+}
+
+TEST(GameCore, ScaleAlongScalesExactlyTheComponentItIsGiven)
+{
+	// A tee drifting at 3.9 under air friction. Writing the scale as a difference added
+	// to the speed it already has misses it by 2e-7 at exactly this speed.
+	vec2 V(2.4000001f, 3.9000001f);
+
+	ScaleAlong(V, GravityDown(), 0.94999999f);
+
+	EXPECT_EQ(V.y, 3.70500016f);
+	EXPECT_EQ(V.x, 2.4000001f);
 }
