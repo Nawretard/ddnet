@@ -515,24 +515,14 @@ bool CCollision::TestBox(vec2 Pos, vec2 Size) const
 	return false;
 }
 
-bool CCollision::IsOnGround(vec2 Pos, float Size) const
-{
-	if(CheckPoint(Pos.x + Size / 2, Pos.y + Size / 2 + 5))
-		return true;
-	if(CheckPoint(Pos.x - Size / 2, Pos.y + Size / 2 + 5))
-		return true;
-
-	return false;
-}
-
-// The box leads with the face that -Normal points at, so that face is what it
-// touched. The point is the middle of whichever of its two corners sit in a solid
-// tile; finding neither means the box was already overlapping before the move,
-// which the sweep does not resolve.
-void CCollision::ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, vec2 *pVel, FContactResponse pfnOnContact, void *pUser) const
+// The point is the middle of whichever corners of the face sit in a solid tile.
+// Finding neither only happens on a sweep, and means the box was already overlapping
+// before the move, which the sweep does not resolve.
+bool CCollision::ProbeFace(vec2 Pos, vec2 Size, vec2 Normal, float Reach, SContact *pOutContact) const
 {
 	const vec2 HalfSize = Size * 0.5f;
-	const vec2 Face = BoxPos - vec2(Normal.x * HalfSize.x, Normal.y * HalfSize.y);
+	const vec2 Out = -Normal;
+	const vec2 Face = Pos + vec2(Out.x * HalfSize.x, Out.y * HalfSize.y) + vec2(Out.x * Reach, Out.y * Reach);
 	const vec2 Along = vec2(-Normal.y, Normal.x);
 	const vec2 Corner0 = Face - vec2(Along.x * HalfSize.x, Along.y * HalfSize.y);
 	const vec2 Corner1 = Face + vec2(Along.x * HalfSize.x, Along.y * HalfSize.y);
@@ -540,29 +530,38 @@ void CCollision::ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, vec2 *pVel, 
 	const int Material0 = IsSolid(round_to_int(Corner0.x), round_to_int(Corner0.y));
 	const int Material1 = IsSolid(round_to_int(Corner1.x), round_to_int(Corner1.y));
 
-	SContact Contact;
-	Contact.Normal = Normal;
-	if(Material0 && Material1)
+	if(pOutContact)
 	{
-		Contact.Point = Face;
-		Contact.Material = Material0;
-	}
-	else if(Material0)
-	{
-		Contact.Point = Corner0;
-		Contact.Material = Material0;
-	}
-	else if(Material1)
-	{
-		Contact.Point = Corner1;
-		Contact.Material = Material1;
-	}
-	else
-	{
-		Contact.Point = Face;
-		Contact.Material = 0;
+		pOutContact->Normal = Normal;
+		if(Material0 && Material1)
+		{
+			pOutContact->Point = Face;
+			pOutContact->Material = Material0;
+		}
+		else if(Material0)
+		{
+			pOutContact->Point = Corner0;
+			pOutContact->Material = Material0;
+		}
+		else if(Material1)
+		{
+			pOutContact->Point = Corner1;
+			pOutContact->Material = Material1;
+		}
+		else
+		{
+			pOutContact->Point = Face;
+			pOutContact->Material = 0;
+		}
 	}
 
+	return Material0 != 0 || Material1 != 0;
+}
+
+void CCollision::ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, vec2 *pVel, FContactResponse pfnOnContact, void *pUser) const
+{
+	SContact Contact;
+	ProbeFace(BoxPos, Size, Normal, 0.0f, &Contact);
 	pfnOnContact(Contact, pVel, pUser);
 }
 

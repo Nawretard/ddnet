@@ -2452,7 +2452,7 @@ void CGameClient::OnNewSnapshot(bool DummySwapped)
 					Alpha = g_Config.m_ClShowOthersAlpha / 100.0f;
 				const float Volume = 1.0f; // TODO snd_game_volume_others
 
-				const bool Grounded = Collision()->IsOnGround(vec2(m_Snap.m_aCharacters[i].m_Prev.m_X, m_Snap.m_aCharacters[i].m_Prev.m_Y), CCharacterCore::PhysicalSize());
+				const bool Grounded = StandsOnSurface(Collision(), vec2(m_Snap.m_aCharacters[i].m_Prev.m_X, m_Snap.m_aCharacters[i].m_Prev.m_Y), CCharacterCore::PhysicalSizeVec2(), GRAVITY_DOWN);
 				if(!Grounded)
 				{
 					m_Effects.AirJump(Pos, Alpha, Volume);

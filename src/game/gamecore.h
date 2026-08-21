@@ -179,6 +179,16 @@ public:
 
 typedef std::function<void(int ClientId, bool DisallowReset)> FAntiPingInterfereCallback;
 
+// The one direction gravity currently takes. Phase A turns it into a value a body carries.
+constexpr vec2 GRAVITY_DOWN = vec2(0.0f, 1.0f);
+
+// How far past its feet a body still counts as standing on a surface.
+constexpr float GROUND_REACH = 5.0f;
+
+// Whether a surface facing against gravity is within reach of the body's feet. This is
+// the geometric half of the question; CCharacter::IsGrounded also accepts a blocking tile.
+bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, vec2 Down);
+
 // A surface answers with the elasticity of the axis its normal lies on.
 inline float ElasticityAlong(vec2 Normal, vec2 Elasticity)
 {
@@ -196,7 +206,7 @@ void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel);
 struct SBodyContacts
 {
 	vec2 m_Elasticity;
-	vec2 m_Down = vec2(0.0f, 1.0f);
+	vec2 m_Down = GRAVITY_DOWN;
 	bool m_Grounded = false;
 
 	static void OnContact(const SContact &Contact, vec2 *pVel, void *pUser);

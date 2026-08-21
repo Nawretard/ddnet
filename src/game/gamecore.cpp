@@ -199,7 +199,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	m_TriggeredEvents = 0;
 
 	// get ground state
-	const bool Grounded = m_pCollision->IsOnGround(m_Pos, PhysicalSize());
+	const bool Grounded = StandsOnSurface(m_pCollision, m_Pos, PhysicalSizeVec2(), GRAVITY_DOWN);
 	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
 
 	m_Vel.y += m_Tuning.m_Gravity;
@@ -534,6 +534,11 @@ void CCharacterCore::TickDeferred()
 	// clamp the velocity to something sane
 	if(length(m_Vel) > 6000)
 		m_Vel = normalize(m_Vel) * 6000;
+}
+
+bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, vec2 Down)
+{
+	return pCollision->ProbeFace(Pos, Size, -Down, GROUND_REACH, nullptr);
 }
 
 void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel)

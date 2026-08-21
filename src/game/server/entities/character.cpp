@@ -243,7 +243,7 @@ void CCharacter::SetDeepFrozen(bool Active)
 
 bool CCharacter::IsGrounded()
 {
-	if(Collision()->IsOnGround(m_Pos, GetProximityRadius()))
+	if(StandsOnSurface(Collision(), m_Pos, vec2(GetProximityRadius(), GetProximityRadius()), GRAVITY_DOWN))
 		return true;
 
 	int MoveRestrictionsBelow = Collision()->GetMoveRestrictions(m_Pos + vec2(0, GetProximityRadius() / 2 + 4), 0.0f);

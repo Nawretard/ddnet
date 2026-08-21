@@ -70,7 +70,15 @@ public:
 	void MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, float Elasticity, int *pBounces) const;
 	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, FContactResponse pfnOnContact, void *pUser) const;
 	bool TestBox(vec2 Pos, vec2 Size) const;
-	bool IsOnGround(vec2 Pos, float Size) const;
+
+	/**
+	 * What the box touches on the face that -Normal points at, reached Reach beyond it.
+	 * Reach 0 asks what the box is already up against.
+	 *
+	 * @return whether either corner of that face sits in a solid tile. The contact is
+	 *         filled either way, and carries material 0 when nothing was there.
+	 */
+	bool ProbeFace(vec2 Pos, vec2 Size, vec2 Normal, float Reach, SContact *pOutContact) const;
 
 	// DDRace
 	void SetCollisionAt(float x, float y, int Index);

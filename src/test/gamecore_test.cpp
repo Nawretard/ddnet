@@ -24,7 +24,7 @@ CCharacterCore SpawnedAt(CWorldCore *pWorld, CCollision *pCollision, vec2 Pos)
 	return Core;
 }
 
-// Resting on the floor of Room(): low enough for IsOnGround, high enough not to overlap.
+// Resting on the floor of Room(): low enough to be grounded, high enough not to overlap.
 constexpr vec2 ON_FLOOR = vec2(160.0f, 177.0f);
 constexpr vec2 MID_AIR = vec2(160.0f, 100.0f);
 
@@ -211,4 +211,42 @@ TEST(GameCore, TheCornerCaseStillGroundsThroughItsFloorNormal)
 	// It reports two contacts; only the one facing up counts.
 	EXPECT_EQ(Core.m_Jumped, 1);
 	EXPECT_EQ(Core.m_JumpedTotal, 0);
+}
+
+TEST(GameCore, GroundReachesFivePixelsBelowTheFeet)
+{
+	CAsciiWorld World = Room();
+	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
+
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(160.0f, 172.0f), Size, GRAVITY_DOWN));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(160.0f, 173.0f), Size, GRAVITY_DOWN));
+}
+
+TEST(GameCore, GroundIsWhicheverWayGravityPoints)
+{
+	CAsciiWorld World = Room();
+	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
+	const vec2 UnderTheCeiling = vec2(160.0f, 50.0f);
+
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, GRAVITY_DOWN));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, -GRAVITY_DOWN));
+}
+
+TEST(GameCore, OneFootOnTheLedgeIsEnough)
+{
+	CAsciiWorld World({
+		"..........",
+		"..........",
+		"..........",
+		"..........",
+		"..........",
+		"..........",
+		"###.......",
+		"..........",
+	});
+	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
+
+	// The floor ends at x 96: the left foot is over it, the right one is over nothing.
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(85.0f, 173.0f), Size, GRAVITY_DOWN));
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(120.0f, 173.0f), Size, GRAVITY_DOWN));
 }

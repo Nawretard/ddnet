@@ -10,7 +10,7 @@
 #include <cmath>
 #include <vector>
 
-// Characterization tests: they freeze what MoveBox and IsOnGround currently do,
+// Characterization tests: they freeze what MoveBox and ProbeFace currently do,
 // not what they ought to do. The expected values were read off the unmodified
 // implementation, and the velocities and elasticities are deliberately ones
 // whose products round, so that a rewrite which is algebraically equivalent but
@@ -120,14 +120,30 @@ TEST(Collision, MoveBoxReflectsBothAxesWhenOnlyTheDiagonalCollides)
 	EXPECT_EQ(Vel.y, -0.0240000002f);
 }
 
-TEST(Collision, IsOnGroundProbesFivePixelsBelowTheFeet)
+TEST(Collision, ProbeFaceReachesPastTheFace)
 {
 	CAsciiWorld World = Room();
-	const float Size = CCharacterCore::PhysicalSize();
+	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
+	const vec2 Up = vec2(0.0f, -1.0f);
 
 	// The floor starts at y 192 and the probe rounds, so it catches at y + 14 + 5 >= 191.5.
-	EXPECT_FALSE(World.Collision()->IsOnGround(vec2(160.0f, 172.0f), Size));
-	EXPECT_TRUE(World.Collision()->IsOnGround(vec2(160.0f, 173.0f), Size));
+	EXPECT_FALSE(World.Collision()->ProbeFace(vec2(160.0f, 172.0f), Size, Up, 5.0f, nullptr));
+	EXPECT_TRUE(World.Collision()->ProbeFace(vec2(160.0f, 173.0f), Size, Up, 5.0f, nullptr));
+	// Without the reach the same box is not up against anything yet.
+	EXPECT_FALSE(World.Collision()->ProbeFace(vec2(160.0f, 173.0f), Size, Up, 0.0f, nullptr));
+}
+
+TEST(Collision, ProbeFaceReportsWhatItFound)
+{
+	CAsciiWorld World = Room();
+	const vec2 Up = vec2(0.0f, -1.0f);
+	SContact Contact;
+
+	ASSERT_TRUE(World.Collision()->ProbeFace(vec2(160.0f, 173.0f), CCharacterCore::PhysicalSizeVec2(), Up, 5.0f, &Contact));
+
+	EXPECT_EQ(Contact.Normal, Up);
+	EXPECT_EQ(Contact.Point, vec2(160.0f, 192.0f));
+	EXPECT_EQ(Contact.Material, TILE_SOLID);
 }
 
 TEST(Collision, MoveBoxReportsNoContactOverEmptySpace)
