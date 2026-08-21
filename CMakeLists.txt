@@ -3456,6 +3456,7 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
     dbg_test.cpp
     editor_test.cpp
     fs_test.cpp
+    gamecore_test.cpp
     gameworld_test.cpp
     git_revision_test.cpp
     hash_test.cpp
