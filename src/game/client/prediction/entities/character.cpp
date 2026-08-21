@@ -1398,6 +1398,10 @@ void CCharacter::Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtende
 		m_TeleCheckpoint = pExtended->m_TeleCheckpoint;
 		m_StrongWeakId = pExtended->m_StrongWeakId;
 		m_TuneZoneOverride = pExtended->m_TuneZoneOverride;
+		// The only thing that says which way this tee falls: nothing in the base
+		// snapshot does, so without it every tee but our own predicted one upright.
+		if(IsGravityPreset(pExtended->m_Gravity))
+			m_Core.SetGravity((EGravityPreset)pExtended->m_Gravity);
 
 		const bool Ninja = (pExtended->m_Flags & CHARACTERFLAG_WEAPON_NINJA) != 0;
 		if(Ninja && m_Core.m_ActiveWeapon != WEAPON_NINJA)

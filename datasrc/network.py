@@ -261,6 +261,9 @@ Objects = [
 		NetIntAny("m_TargetX", default=0),
 		NetIntAny("m_TargetY", default=0),
 		NetIntRange("m_TuneZoneOverride", 'TuneZone::OVERRIDE_NONE', 'TuneZone::NUM-1', default='TuneZone::OVERRIDE_NONE'),
+		# Which way this tee falls. Nothing else on the wire says, so a client that
+		# does not predict a tee -- every tee but its own -- had no way to know.
+		NetIntRange("m_Gravity", 0, 'NUM_GRAVITY_PRESETS-1', default=0),
 	], validate_size=False),
 
 	NetObjectEx("DDNetPlayer", "player@netobj.ddnet.tw", [

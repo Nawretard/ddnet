@@ -348,7 +348,9 @@ public:
 	int m_Direction;
 	int m_Angle;
 
-	// The way this body falls. Every axis its physics uses is derived from it.
+	// The way this body falls, as the preset it was chosen from and as the direction
+	// its physics reads. Both are written only by SetGravity, so they cannot drift.
+	EGravityPreset m_Gravity = GRAVITY_DOWN;
 	CDirection2 m_GravityDown = DefaultGravityDown();
 	CNetObj_PlayerInput m_Input;
 
@@ -356,6 +358,7 @@ public:
 
 	void Init(CWorldCore *pWorld, CCollision *pCollision, CTeamsCore *pTeams = nullptr);
 	void SetCoreWorld(CWorldCore *pWorld, CCollision *pCollision, CTeamsCore *pTeams);
+	void SetGravity(EGravityPreset Preset);
 	void Reset();
 	void TickDeferred();
 	void Tick(bool UseInput, bool DoDeferredTick = true);

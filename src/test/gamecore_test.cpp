@@ -297,7 +297,7 @@ TEST(GameCore, LeftAndRightFollowTheBodysOwnDown)
 	CWorldCore WorldCore;
 	CCharacterCore Upright = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
 	CCharacterCore Inverted = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
-	Inverted.m_GravityDown = DefaultGravityDown().Opposite();
+	Inverted.SetGravity(GRAVITY_UP);
 	Upright.m_Input.m_Direction = 1;
 	Inverted.m_Input.m_Direction = 1;
 
@@ -310,22 +310,12 @@ TEST(GameCore, LeftAndRightFollowTheBodysOwnDown)
 	EXPECT_EQ(Inverted.m_Vel, vec2(-1.5f, -0.5f));
 }
 
-TEST(GameCore, AGravityBuiltFromAnyLengthBehavesLikeTheUnitOne)
+TEST(GameCore, ADirectionBuiltFromAnyLengthIsTheUnitOne)
 {
-	CAsciiWorld World = Room();
-	CWorldCore WorldCore;
-	CCharacterCore Unit = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
-	CCharacterCore Long = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
-	Long.m_GravityDown = CDirection2::Normalized(vec2(0.0f, 5.0f));
-	Unit.m_Input.m_Direction = 1;
-	Long.m_Input.m_Direction = 1;
-
-	Unit.Tick(true);
-	Long.Tick(true);
-
-	// The direction only names a way to fall; how hard is the tuning's business.
-	EXPECT_EQ(Long.m_Vel, Unit.m_Vel);
-	EXPECT_EQ(Long.m_Vel, vec2(1.5f, 0.5f));
+	// The invariant the axis operations rest on: they read a component with a dot
+	// product, which only measures one when the direction is unit.
+	EXPECT_EQ(CDirection2::Normalized(vec2(0.0f, 5.0f)).Unit(), vec2(0.0f, 1.0f));
+	EXPECT_EQ(CDirection2::Normalized(vec2(-3.0f, 0.0f)).Unit(), vec2(-1.0f, 0.0f));
 }
 
 TEST(GameCore, SetAlongLandsExactlyOnTheValueItIsGiven)
@@ -431,7 +421,7 @@ TEST(GameCore, AnInputThatAsksForNothingLeavesTheBodyOnTheGravityItHad)
 	CAsciiWorld World = Room();
 	CWorldCore WorldCore;
 	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
-	Core.m_GravityDown = ResolveGravity(GRAVITY_LEFT);
+	Core.SetGravity(GRAVITY_LEFT);
 	Core.m_Input.m_WantedGravity = 0;
 
 	Core.Tick(true);
@@ -467,7 +457,7 @@ namespace {
 vec2 HookDirectionAfterAiming(CAsciiWorld &World, CWorldCore *pWorldCore, EGravityPreset Preset, int AimX, int AimY)
 {
 	CCharacterCore Core = SpawnedAt(pWorldCore, World.Collision(), MID_ROOM);
-	Core.m_GravityDown = ResolveGravity(Preset);
+	Core.SetGravity(Preset);
 	Core.m_Input.m_Hook = 1;
 	Core.m_Input.m_TargetX = AimX;
 	Core.m_Input.m_TargetY = AimY;
@@ -504,4 +494,31 @@ TEST(GameCore, TheAimAngleIsUnchangedForABodyFallingDown)
 	Core.Tick(true);
 
 	EXPECT_EQ(Core.m_Angle, -207);
+}
+
+TEST(GameCore, TheGravityPresetAndTheDirectionMoveTogether)
+{
+	// The preset is what crosses the wire and the direction is what the physics
+	// reads. They are one state, so only SetGravity writes them.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	EXPECT_EQ(Core.m_Gravity, GRAVITY_DOWN);
+
+	Core.SetGravity(GRAVITY_UP_LEFT);
+
+	EXPECT_EQ(Core.m_Gravity, GRAVITY_UP_LEFT);
+	EXPECT_EQ(Core.m_GravityDown.Unit(), ResolveGravity(GRAVITY_UP_LEFT).Unit());
+}
+
+TEST(GameCore, AnInputThatAsksForAGravityMovesThePresetTheWireCarries)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Input.m_WantedGravity = AskForGravity(GRAVITY_RIGHT);
+
+	Core.Tick(true);
+
+	EXPECT_EQ(Core.m_Gravity, GRAVITY_RIGHT);
 }

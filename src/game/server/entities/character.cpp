@@ -1372,6 +1372,7 @@ void CCharacter::Snap(int SnappingClient)
 	}
 	DDNetCharacter.m_TargetX = m_Core.m_Input.m_TargetX;
 	DDNetCharacter.m_TargetY = m_Core.m_Input.m_TargetY;
+	DDNetCharacter.m_Gravity = m_Core.m_Gravity;
 
 	// OVERRIDE_NONE is the default value, the object is zeroed, so it would incorrectly become 0
 	DDNetCharacter.m_TuneZoneOverride = TuneZone::OVERRIDE_NONE;

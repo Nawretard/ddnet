@@ -165,7 +165,7 @@ void CCharacterCore::Reset()
 	m_JumpedTotal = 0;
 	m_Jumps = 2;
 	m_TriggeredEvents = 0;
-	m_GravityDown = DefaultGravityDown();
+	SetGravity(GRAVITY_DOWN);
 
 	// DDNet Character
 	m_Solo = false;
@@ -203,7 +203,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	if(UseInput)
 	{
 		if(const std::optional<EGravityPreset> Wanted = GravityAskedFor(m_Input.m_WantedGravity))
-			m_GravityDown = ResolveGravity(*Wanted);
+			SetGravity(*Wanted);
 	}
 
 	// get ground state
@@ -564,6 +564,12 @@ CDirection2 ResolveGravity(EGravityPreset Preset)
 		vec2(-1.0f, 0.0f),
 		vec2(-1.0f, 1.0f)};
 	return CDirection2::Normalized(s_aDown[Preset]);
+}
+
+void CCharacterCore::SetGravity(EGravityPreset Preset)
+{
+	m_Gravity = Preset;
+	m_GravityDown = ResolveGravity(Preset);
 }
 
 bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down)
