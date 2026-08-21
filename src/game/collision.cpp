@@ -566,7 +566,7 @@ void CCollision::ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, FContactCall
 	pfnOnContact(Contact, pUser);
 }
 
-void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded, FContactCallback pfnOnContact, void *pUser) const
+void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, FContactCallback pfnOnContact, void *pUser) const
 {
 	// do the move
 	vec2 Pos = *pInoutPos;
@@ -606,8 +606,6 @@ void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elast
 
 				if(TestBox(vec2(Pos.x, NewPos.y), Size))
 				{
-					if(pGrounded && ElasticityY > 0 && Vel.y > 0)
-						*pGrounded = true;
 					if(pfnOnContact)
 						ReportContact(vec2(Pos.x, NewPos.y), Size, vec2(0.0f, Vel.y > 0.0f ? -1.0f : 1.0f), pfnOnContact, pUser);
 					NewPos.y = Pos.y;
@@ -628,8 +626,6 @@ void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elast
 				// this is a real _corner case_!
 				if(Hits == 0)
 				{
-					if(pGrounded && ElasticityY > 0 && Vel.y > 0)
-						*pGrounded = true;
 					if(pfnOnContact)
 					{
 						ReportContact(NewPos, Size, vec2(0.0f, Vel.y > 0.0f ? -1.0f : 1.0f), pfnOnContact, pUser);

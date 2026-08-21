@@ -45,35 +45,30 @@ TEST(Collision, MoveBoxAccumulatesSubStepsRatherThanAddingVelocityOnce)
 	EXPECT_EQ(Vel.y, 5.0f);
 }
 
-TEST(Collision, MoveBoxBouncesOffTheFloorAndReportsGround)
+TEST(Collision, MoveBoxBouncesOffTheFloor)
 {
 	CAsciiWorld World = Room();
 	vec2 Pos(160.0f, 130.0f);
 	vec2 Vel(0.0f, 51.0f);
-	bool Grounded = false;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f), &Grounded);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f));
 
 	EXPECT_EQ(Pos.y, 176.782898f);
 	EXPECT_EQ(Vel.y, -5.0999999f);
-	EXPECT_TRUE(Grounded);
 }
 
-TEST(Collision, MoveBoxReportsNoGroundWhenElasticityIsZero)
+TEST(Collision, MoveBoxStopsDeadWhenElasticityIsZero)
 {
 	CAsciiWorld World = Room();
 	vec2 Pos(160.0f, 100.0f);
 	vec2 Vel(0.0f, 90.0f);
-	bool Grounded = false;
 
-	// The default tuning has ground_elasticity_y 0, so this is the case real play
-	// takes: MoveBox never reports ground and CCharacterCore uses IsOnGround instead.
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.0f), &Grounded);
+	// The default tuning has ground_elasticity_y 0, so this is the case real play takes.
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.0f));
 
 	EXPECT_EQ(Pos.y, 177.143066f);
 	EXPECT_EQ(Vel.y, 0.0f);
 	EXPECT_TRUE(std::signbit(Vel.y)) << "the stop comes from multiplying by -0";
-	EXPECT_FALSE(Grounded);
 }
 
 TEST(Collision, MoveBoxBouncesOffAWall)
@@ -81,13 +76,11 @@ TEST(Collision, MoveBoxBouncesOffAWall)
 	CAsciiWorld World = Room();
 	vec2 Pos(250.0f, 100.0f);
 	vec2 Vel(51.0f, 0.0f);
-	bool Grounded = false;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f), &Grounded);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f));
 
 	EXPECT_EQ(Pos.x, 269.811462f);
 	EXPECT_EQ(Vel.x, -5.0999999f);
-	EXPECT_FALSE(Grounded);
 }
 
 TEST(Collision, MoveBoxReflectsBothAxesWhenOnlyTheDiagonalCollides)
@@ -105,7 +98,6 @@ TEST(Collision, MoveBoxReflectsBothAxesWhenOnlyTheDiagonalCollides)
 	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
 	vec2 Pos(145.4f, 145.4f);
 	vec2 Vel(0.4f, 0.4f);
-	bool Grounded = false;
 
 	// The corner of the box cuts across the corner of the tile: moving along
 	// either axis alone stays free, so neither single-axis test catches it.
@@ -113,12 +105,11 @@ TEST(Collision, MoveBoxReflectsBothAxesWhenOnlyTheDiagonalCollides)
 	ASSERT_FALSE(World.Collision()->TestBox(vec2(Pos.x, Pos.y + Vel.y), Size));
 	ASSERT_FALSE(World.Collision()->TestBox(vec2(Pos.x + Vel.x, Pos.y), Size));
 
-	World.Collision()->MoveBox(&Pos, &Vel, Size, vec2(0.03f, 0.06f), &Grounded);
+	World.Collision()->MoveBox(&Pos, &Vel, Size, vec2(0.03f, 0.06f));
 
 	EXPECT_EQ(Pos, vec2(145.4f, 145.4f));
 	EXPECT_EQ(Vel.x, -0.0120000001f);
 	EXPECT_EQ(Vel.y, -0.0240000002f);
-	EXPECT_TRUE(Grounded);
 }
 
 TEST(Collision, IsOnGroundProbesFivePixelsBelowTheFeet)
@@ -138,7 +129,7 @@ TEST(Collision, MoveBoxReportsNoContactOverEmptySpace)
 	vec2 Vel(0.0f, 5.0f);
 	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.0f), nullptr, SContactLog::Record, &Log);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.0f), SContactLog::Record, &Log);
 
 	EXPECT_TRUE(Log.m_vContacts.empty());
 }
@@ -150,7 +141,7 @@ TEST(Collision, MoveBoxReportsAFloorContactPointingUp)
 	vec2 Vel(0.0f, 51.0f);
 	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f), nullptr, SContactLog::Record, &Log);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f), SContactLog::Record, &Log);
 
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
 	EXPECT_EQ(Log.m_vContacts[0].Normal, vec2(0.0f, -1.0f));
@@ -167,7 +158,7 @@ TEST(Collision, MoveBoxReportsAWallContactPointingAwayFromTheWall)
 	vec2 Vel(51.0f, 0.0f);
 	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f), nullptr, SContactLog::Record, &Log);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f), SContactLog::Record, &Log);
 
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
 	EXPECT_EQ(Log.m_vContacts[0].Normal, vec2(-1.0f, 0.0f));
@@ -191,7 +182,7 @@ TEST(Collision, MoveBoxReportsBothFacesForTheSingleCornerPoint)
 	vec2 Vel(0.4f, 0.4f);
 	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.03f, 0.06f), nullptr, SContactLog::Record, &Log);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.03f, 0.06f), SContactLog::Record, &Log);
 
 	// One corner of the box sits in the tile, and it belongs to two faces at once.
 	ASSERT_EQ(Log.m_vContacts.size(), 2u);
@@ -208,7 +199,7 @@ TEST(Collision, MoveBoxReportsACeilingContactPointingDown)
 	vec2 Vel(0.0f, -51.0f);
 	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f), nullptr, SContactLog::Record, &Log);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f), SContactLog::Record, &Log);
 
 	// The normal follows the face the box leads with, so going up it flips.
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
@@ -224,7 +215,7 @@ TEST(Collision, MoveBoxReportsALeftWallContactPointingRight)
 	vec2 Vel(-51.0f, 0.0f);
 	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f), nullptr, SContactLog::Record, &Log);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f), SContactLog::Record, &Log);
 
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
 	EXPECT_EQ(Log.m_vContacts[0].Normal, vec2(1.0f, 0.0f));

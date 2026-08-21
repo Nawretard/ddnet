@@ -535,6 +535,26 @@ void CCharacterCore::TickDeferred()
 		m_Vel = normalize(m_Vel) * 6000;
 }
 
+namespace {
+
+// A surface holds the tee up when it faces against gravity. Whether it counts at all
+// is the body's business, and DDNet only lets a floor with elasticity ground a tee.
+struct SGroundCheck
+{
+	vec2 m_Down;
+	bool m_Elastic;
+	bool m_Grounded;
+
+	static void OnContact(const SContact &Contact, void *pUser)
+	{
+		SGroundCheck *pThis = static_cast<SGroundCheck *>(pUser);
+		if(pThis->m_Elastic && dot(Contact.Normal, pThis->m_Down) < 0.0f)
+			pThis->m_Grounded = true;
+	}
+};
+
+} // namespace
+
 void CCharacterCore::Move()
 {
 	float RampValue = VelocityRamp(length(m_Vel) * 50, m_Tuning.m_VelrampStart, m_Tuning.m_VelrampRange, m_Tuning.m_VelrampCurvature);
@@ -544,13 +564,13 @@ void CCharacterCore::Move()
 	vec2 NewPos = m_Pos;
 
 	vec2 OldVel = m_Vel;
-	bool Grounded = false;
+	SGroundCheck GroundCheck = {vec2(0.0f, 1.0f), (float)m_Tuning.m_GroundElasticityY > 0.0f, false};
 	m_pCollision->MoveBox(&NewPos, &m_Vel, PhysicalSizeVec2(),
 		vec2(m_Tuning.m_GroundElasticityX,
 			m_Tuning.m_GroundElasticityY),
-		&Grounded);
+		SGroundCheck::OnContact, &GroundCheck);
 
-	if(Grounded)
+	if(GroundCheck.m_Grounded)
 	{
 		m_Jumped &= ~2;
 		m_JumpedTotal = 0;

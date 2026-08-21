@@ -119,3 +119,96 @@ TEST(GameCore, MoveRampsHorizontalVelocityForTheStepAndRestoresItAfter)
 	EXPECT_EQ(Core.m_Pos.x, 185.568756f);
 	EXPECT_EQ(Core.m_Vel.x, 30.0f);
 }
+
+// Ground is no longer something the collision answers: Move folds the contacts it
+// reports through the body's own rule. These four cover the parts of that rule.
+
+namespace {
+
+CCharacterCore MidJump(CWorldCore *pWorld, CCollision *pCollision, vec2 Pos, float ElasticityX, float ElasticityY)
+{
+	CCharacterCore Core = SpawnedAt(pWorld, pCollision, Pos);
+	Core.m_Tuning.m_GroundElasticityX = ElasticityX;
+	Core.m_Tuning.m_GroundElasticityY = ElasticityY;
+	Core.m_Jumped = 3;
+	Core.m_JumpedTotal = 5;
+	return Core;
+}
+
+} // namespace
+
+TEST(GameCore, AnElasticFloorGivesTheAirJumpBack)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = MidJump(&WorldCore, World.Collision(), vec2(160.0f, 130.0f), 0.0f, 0.5f);
+	Core.m_Vel = vec2(0.0f, 51.0f);
+
+	Core.Move();
+
+	EXPECT_EQ(Core.m_Jumped, 1);
+	EXPECT_EQ(Core.m_JumpedTotal, 0);
+}
+
+TEST(GameCore, AFloorWithoutElasticityDoesNotGround)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = MidJump(&WorldCore, World.Collision(), vec2(160.0f, 130.0f), 0.0f, 0.0f);
+	Core.m_Vel = vec2(0.0f, 51.0f);
+
+	Core.Move();
+
+	EXPECT_EQ(Core.m_Jumped, 3);
+	EXPECT_EQ(Core.m_JumpedTotal, 5);
+}
+
+TEST(GameCore, AWallDoesNotGround)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = MidJump(&WorldCore, World.Collision(), vec2(250.0f, 100.0f), 0.5f, 0.5f);
+	Core.m_Vel = vec2(51.0f, 0.0f);
+
+	Core.Move();
+
+	EXPECT_EQ(Core.m_Jumped, 3);
+	EXPECT_EQ(Core.m_JumpedTotal, 5);
+}
+
+TEST(GameCore, ACeilingDoesNotGround)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = MidJump(&WorldCore, World.Collision(), vec2(160.0f, 90.0f), 0.0f, 0.5f);
+	Core.m_Vel = vec2(0.0f, -51.0f);
+
+	Core.Move();
+
+	// Same surface axis as the floor, opposite normal.
+	EXPECT_EQ(Core.m_Jumped, 3);
+	EXPECT_EQ(Core.m_JumpedTotal, 5);
+}
+
+TEST(GameCore, TheCornerCaseStillGroundsThroughItsFloorNormal)
+{
+	CAsciiWorld World({
+		"..........",
+		"..........",
+		"..........",
+		"..........",
+		"..........",
+		".....#....",
+		"..........",
+		"..........",
+	});
+	CWorldCore WorldCore;
+	CCharacterCore Core = MidJump(&WorldCore, World.Collision(), vec2(145.4f, 145.4f), 0.5f, 0.5f);
+	Core.m_Vel = vec2(0.4f, 0.4f);
+
+	Core.Move();
+
+	// It reports two contacts; only the one facing up counts.
+	EXPECT_EQ(Core.m_Jumped, 1);
+	EXPECT_EQ(Core.m_JumpedTotal, 0);
+}
