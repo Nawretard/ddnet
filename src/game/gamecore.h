@@ -201,8 +201,8 @@ public:
 	CDirection2 Side() const { return CDirection2(vec2(m_Unit.y, -m_Unit.x)); }
 };
 
-// The one direction gravity currently takes. Phase A3 turns it into a per-body choice.
-inline CDirection2 GravityDown() { return CDirection2::Normalized(vec2(0.0f, 1.0f)); }
+// The way a body falls until something gives it another one.
+inline CDirection2 DefaultGravityDown() { return CDirection2::Normalized(vec2(0.0f, 1.0f)); }
 
 // How far past its feet a body still counts as standing on a surface.
 constexpr float GROUND_REACH = 5.0f;
@@ -254,7 +254,7 @@ void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel);
 struct SBodyContacts
 {
 	vec2 m_Elasticity;
-	CDirection2 m_Down = GravityDown();
+	CDirection2 m_Down = DefaultGravityDown();
 	bool m_Grounded = false;
 
 	static void OnContact(const SContact &Contact, vec2 *pVel, void *pUser);
@@ -310,7 +310,7 @@ public:
 	int m_Angle;
 
 	// The way this body falls. Every axis its physics uses is derived from it.
-	CDirection2 m_GravityDown = GravityDown();
+	CDirection2 m_GravityDown = DefaultGravityDown();
 	CNetObj_PlayerInput m_Input;
 
 	int m_TriggeredEvents;

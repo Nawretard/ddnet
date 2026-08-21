@@ -218,8 +218,8 @@ TEST(GameCore, GroundReachesFivePixelsBelowTheFeet)
 	CAsciiWorld World = Room();
 	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
 
-	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(160.0f, 172.0f), Size, GravityDown()));
-	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(160.0f, 173.0f), Size, GravityDown()));
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(160.0f, 172.0f), Size, DefaultGravityDown()));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(160.0f, 173.0f), Size, DefaultGravityDown()));
 }
 
 TEST(GameCore, GroundIsWhicheverWayGravityPoints)
@@ -228,8 +228,8 @@ TEST(GameCore, GroundIsWhicheverWayGravityPoints)
 	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
 	const vec2 UnderTheCeiling = vec2(160.0f, 50.0f);
 
-	EXPECT_FALSE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, GravityDown()));
-	EXPECT_TRUE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, GravityDown().Opposite()));
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, DefaultGravityDown()));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), UnderTheCeiling, Size, DefaultGravityDown().Opposite()));
 }
 
 TEST(GameCore, OneFootOnTheLedgeIsEnough)
@@ -247,8 +247,8 @@ TEST(GameCore, OneFootOnTheLedgeIsEnough)
 	const vec2 Size = CCharacterCore::PhysicalSizeVec2();
 
 	// The floor ends at x 96: the left foot is over it, the right one is over nothing.
-	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(85.0f, 173.0f), Size, GravityDown()));
-	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(120.0f, 173.0f), Size, GravityDown()));
+	EXPECT_TRUE(StandsOnSurface(World.Collision(), vec2(85.0f, 173.0f), Size, DefaultGravityDown()));
+	EXPECT_FALSE(StandsOnSurface(World.Collision(), vec2(120.0f, 173.0f), Size, DefaultGravityDown()));
 }
 
 namespace {
@@ -297,7 +297,7 @@ TEST(GameCore, LeftAndRightFollowTheBodysOwnDown)
 	CWorldCore WorldCore;
 	CCharacterCore Upright = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
 	CCharacterCore Inverted = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
-	Inverted.m_GravityDown = GravityDown().Opposite();
+	Inverted.m_GravityDown = DefaultGravityDown().Opposite();
 	Upright.m_Input.m_Direction = 1;
 	Inverted.m_Input.m_Direction = 1;
 
@@ -334,7 +334,7 @@ TEST(GameCore, SetAlongLandsExactlyOnTheValueItIsGiven)
 	// added to the speed it already has misses it by 1e-6 at exactly this speed.
 	vec2 V(3.0f, 2.4000001f);
 
-	SetAlong(V, GravityDown(), -13.1999998f);
+	SetAlong(V, DefaultGravityDown(), -13.1999998f);
 
 	EXPECT_EQ(V.y, -13.1999998f);
 	EXPECT_EQ(V.x, 3.0f);
@@ -346,7 +346,7 @@ TEST(GameCore, ScaleAlongScalesExactlyTheComponentItIsGiven)
 	// to the speed it already has misses it by 2e-7 at exactly this speed.
 	vec2 V(2.4000001f, 3.9000001f);
 
-	ScaleAlong(V, GravityDown(), 0.94999999f);
+	ScaleAlong(V, DefaultGravityDown(), 0.94999999f);
 
 	EXPECT_EQ(V.y, 3.70500016f);
 	EXPECT_EQ(V.x, 2.4000001f);

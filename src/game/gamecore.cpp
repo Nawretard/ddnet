@@ -165,7 +165,7 @@ void CCharacterCore::Reset()
 	m_JumpedTotal = 0;
 	m_Jumps = 2;
 	m_TriggeredEvents = 0;
-	m_GravityDown = GravityDown();
+	m_GravityDown = DefaultGravityDown();
 
 	// DDNet Character
 	m_Solo = false;

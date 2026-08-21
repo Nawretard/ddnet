@@ -243,7 +243,7 @@ void CCharacter::SetDeepFrozen(bool Active)
 
 bool CCharacter::IsGrounded()
 {
-	if(StandsOnSurface(Collision(), m_Pos, vec2(GetProximityRadius(), GetProximityRadius()), GravityDown()))
+	if(StandsOnSurface(Collision(), m_Pos, vec2(GetProximityRadius(), GetProximityRadius()), m_Core.m_GravityDown))
 		return true;
 
 	int MoveRestrictionsBelow = Collision()->GetMoveRestrictions(m_Pos + vec2(0, GetProximityRadius() / 2 + 4), 0.0f);
@@ -334,7 +334,7 @@ void CCharacter::HandleNinja()
 			GetTuning(m_TuneZone)->m_GroundElasticityX,
 			GetTuning(m_TuneZone)->m_GroundElasticityY);
 
-		SBodyContacts Contacts = {GroundElasticity};
+		SBodyContacts Contacts = {GroundElasticity, m_Core.m_GravityDown};
 		Collision()->MoveBox(&m_Core.m_Pos, &m_Core.m_Vel, vec2(GetProximityRadius(), GetProximityRadius()), SBodyContacts::OnContact, &Contacts);
 
 		// reset velocity so the client doesn't predict stuff

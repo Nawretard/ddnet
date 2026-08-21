@@ -41,7 +41,7 @@ void CCharacter::SetSuper(bool Super)
 
 bool CCharacter::IsGrounded()
 {
-	if(StandsOnSurface(Collision(), m_Pos, vec2(GetProximityRadius(), GetProximityRadius()), GravityDown()))
+	if(StandsOnSurface(Collision(), m_Pos, vec2(GetProximityRadius(), GetProximityRadius()), m_Core.m_GravityDown))
 		return true;
 
 	int MoveRestrictionsBelow = Collision()->GetMoveRestrictions(m_Pos + vec2(0, GetProximityRadius() / 2 + 4), 0.0f);
@@ -131,7 +131,7 @@ void CCharacter::HandleNinja()
 		// Set velocity
 		m_Core.m_Vel = m_Core.m_Ninja.m_ActivationDir * g_pData->m_Weapons.m_Ninja.m_Velocity;
 		vec2 OldPos = m_Pos;
-		SBodyContacts Contacts = {vec2(GetTuning(GetOverriddenTuneZone())->m_GroundElasticityX, GetTuning(GetOverriddenTuneZone())->m_GroundElasticityY)};
+		SBodyContacts Contacts = {vec2(GetTuning(GetOverriddenTuneZone())->m_GroundElasticityX, GetTuning(GetOverriddenTuneZone())->m_GroundElasticityY), m_Core.m_GravityDown};
 		Collision()->MoveBox(&m_Core.m_Pos, &m_Core.m_Vel, vec2(m_ProximityRadius, m_ProximityRadius), SBodyContacts::OnContact, &Contacts);
 
 		// reset velocity so the client doesn't predict stuff
