@@ -21,11 +21,14 @@ namespace {
 // Collects what MoveBox reports, so a test can assert on the whole sequence.
 struct SContactLog
 {
+	vec2 m_Elasticity;
 	std::vector<SContact> m_vContacts;
 
-	static void Record(const SContact &Contact, void *pUser)
+	static void Record(const SContact &Contact, vec2 *pVel, void *pUser)
 	{
-		static_cast<SContactLog *>(pUser)->m_vContacts.push_back(Contact);
+		SContactLog *pThis = static_cast<SContactLog *>(pUser);
+		pThis->m_vContacts.push_back(Contact);
+		BounceOffContact(Contact, pThis->m_Elasticity, pVel);
 	}
 };
 
@@ -37,7 +40,8 @@ TEST(Collision, MoveBoxAccumulatesSubStepsRatherThanAddingVelocityOnce)
 	vec2 Pos(160.0f, 100.0f);
 	vec2 Vel(0.0f, 5.0f);
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.0f));
+	SBodyContacts Contacts = {vec2(0.0f, 0.0f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
 
 	// Six additions of Vel/6 land 1.5e-5 past Pos + Vel.
 	EXPECT_EQ(Pos.x, 160.0f);
@@ -51,7 +55,8 @@ TEST(Collision, MoveBoxBouncesOffTheFloor)
 	vec2 Pos(160.0f, 130.0f);
 	vec2 Vel(0.0f, 51.0f);
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f));
+	SBodyContacts Contacts = {vec2(0.0f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
 
 	EXPECT_EQ(Pos.y, 176.782898f);
 	EXPECT_EQ(Vel.y, -5.0999999f);
@@ -64,7 +69,8 @@ TEST(Collision, MoveBoxStopsDeadWhenElasticityIsZero)
 	vec2 Vel(0.0f, 90.0f);
 
 	// The default tuning has ground_elasticity_y 0, so this is the case real play takes.
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.0f));
+	SBodyContacts Contacts = {vec2(0.0f, 0.0f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
 
 	EXPECT_EQ(Pos.y, 177.143066f);
 	EXPECT_EQ(Vel.y, 0.0f);
@@ -77,7 +83,8 @@ TEST(Collision, MoveBoxBouncesOffAWall)
 	vec2 Pos(250.0f, 100.0f);
 	vec2 Vel(51.0f, 0.0f);
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f));
+	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
 
 	EXPECT_EQ(Pos.x, 269.811462f);
 	EXPECT_EQ(Vel.x, -5.0999999f);
@@ -105,7 +112,8 @@ TEST(Collision, MoveBoxReflectsBothAxesWhenOnlyTheDiagonalCollides)
 	ASSERT_FALSE(World.Collision()->TestBox(vec2(Pos.x, Pos.y + Vel.y), Size));
 	ASSERT_FALSE(World.Collision()->TestBox(vec2(Pos.x + Vel.x, Pos.y), Size));
 
-	World.Collision()->MoveBox(&Pos, &Vel, Size, vec2(0.03f, 0.06f));
+	SBodyContacts Contacts = {vec2(0.03f, 0.06f)};
+	World.Collision()->MoveBox(&Pos, &Vel, Size, SBodyContacts::OnContact, &Contacts);
 
 	EXPECT_EQ(Pos, vec2(145.4f, 145.4f));
 	EXPECT_EQ(Vel.x, -0.0120000001f);
@@ -127,9 +135,9 @@ TEST(Collision, MoveBoxReportsNoContactOverEmptySpace)
 	CAsciiWorld World = Room();
 	vec2 Pos(160.0f, 100.0f);
 	vec2 Vel(0.0f, 5.0f);
-	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.0f), SContactLog::Record, &Log);
+	SContactLog Log = {vec2(0.0f, 0.0f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SContactLog::Record, &Log);
 
 	EXPECT_TRUE(Log.m_vContacts.empty());
 }
@@ -139,9 +147,9 @@ TEST(Collision, MoveBoxReportsAFloorContactPointingUp)
 	CAsciiWorld World = Room();
 	vec2 Pos(160.0f, 130.0f);
 	vec2 Vel(0.0f, 51.0f);
-	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f), SContactLog::Record, &Log);
+	SContactLog Log = {vec2(0.0f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SContactLog::Record, &Log);
 
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
 	EXPECT_EQ(Log.m_vContacts[0].Normal, vec2(0.0f, -1.0f));
@@ -156,9 +164,9 @@ TEST(Collision, MoveBoxReportsAWallContactPointingAwayFromTheWall)
 	CAsciiWorld World = Room();
 	vec2 Pos(250.0f, 100.0f);
 	vec2 Vel(51.0f, 0.0f);
-	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f), SContactLog::Record, &Log);
+	SContactLog Log = {vec2(0.1f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SContactLog::Record, &Log);
 
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
 	EXPECT_EQ(Log.m_vContacts[0].Normal, vec2(-1.0f, 0.0f));
@@ -180,9 +188,9 @@ TEST(Collision, MoveBoxReportsBothFacesForTheSingleCornerPoint)
 	});
 	vec2 Pos(145.4f, 145.4f);
 	vec2 Vel(0.4f, 0.4f);
-	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.03f, 0.06f), SContactLog::Record, &Log);
+	SContactLog Log = {vec2(0.03f, 0.06f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SContactLog::Record, &Log);
 
 	// One corner of the box sits in the tile, and it belongs to two faces at once.
 	ASSERT_EQ(Log.m_vContacts.size(), 2u);
@@ -197,9 +205,9 @@ TEST(Collision, MoveBoxReportsACeilingContactPointingDown)
 	CAsciiWorld World = Room();
 	vec2 Pos(160.0f, 90.0f);
 	vec2 Vel(0.0f, -51.0f);
-	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.0f, 0.1f), SContactLog::Record, &Log);
+	SContactLog Log = {vec2(0.0f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SContactLog::Record, &Log);
 
 	// The normal follows the face the box leads with, so going up it flips.
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
@@ -213,12 +221,25 @@ TEST(Collision, MoveBoxReportsALeftWallContactPointingRight)
 	CAsciiWorld World = Room();
 	vec2 Pos(70.0f, 100.0f);
 	vec2 Vel(-51.0f, 0.0f);
-	SContactLog Log;
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), vec2(0.1f, 0.1f), SContactLog::Record, &Log);
+	SContactLog Log = {vec2(0.1f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SContactLog::Record, &Log);
 
 	ASSERT_EQ(Log.m_vContacts.size(), 1u);
 	EXPECT_EQ(Log.m_vContacts[0].Normal, vec2(1.0f, 0.0f));
 	EXPECT_EQ(Log.m_vContacts[0].Point, vec2(31.4807701f, 100.0f));
 	EXPECT_EQ(Log.m_vContacts[0].Material, TILE_SOLID);
+}
+
+TEST(Collision, ABounceNeverGivesBackMoreThanItTook)
+{
+	CAsciiWorld World = Room();
+	vec2 Pos(160.0f, 130.0f);
+	vec2 Vel(0.0f, 51.0f);
+	SBodyContacts Contacts = {vec2(0.0f, 5.0f)};
+
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
+
+	// An elasticity above 1 is clamped, so the floor returns the impact speed and no more.
+	EXPECT_EQ(Vel.y, -51.0f);
 }

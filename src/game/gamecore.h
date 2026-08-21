@@ -19,6 +19,7 @@
 
 class CCollision;
 class CTeamsCore;
+struct SContact;
 
 class CTuneParam
 {
@@ -177,6 +178,29 @@ public:
 };
 
 typedef std::function<void(int ClientId, bool DisallowReset)> FAntiPingInterfereCallback;
+
+// A surface answers with the elasticity of the axis its normal lies on.
+inline float ElasticityAlong(vec2 Normal, vec2 Elasticity)
+{
+	return Normal.x != 0.0f ? Elasticity.x : Elasticity.y;
+}
+
+// DDNet's answer to touching a surface: the velocity component along the contact
+// normal flips, scaled by that surface's elasticity. Written per axis rather than as
+// a reflection off the normal, because the two are the same algebra but do not round
+// the same way.
+void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel);
+
+// What a moving body does with the contacts a sweep reports: it bounces off them, and
+// a surface facing against gravity puts it back on the ground.
+struct SBodyContacts
+{
+	vec2 m_Elasticity;
+	vec2 m_Down = vec2(0.0f, 1.0f);
+	bool m_Grounded = false;
+
+	static void OnContact(const SContact &Contact, vec2 *pVel, void *pUser);
+};
 
 class CCharacterCore
 {

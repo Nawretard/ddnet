@@ -38,10 +38,13 @@ struct SContact
 	int Material; // the tile the surface belongs to, TILE_SOLID or TILE_NOHOOK today
 };
 
+// How a body answers a contact. It is handed the velocity because what a touch does
+// to it is the body's rule, not the world's: the sweep only reverts the position so
+// that the box never enters a solid tile.
 // Contacts are streamed as they happen rather than collected, so a move produces
 // as many as it has sub-steps. A single sub-step yields at most two: an axis-aligned
 // box advancing by at most one pixel can only meet one x face and one y face.
-typedef void (*FContactCallback)(const SContact &Contact, void *pUser);
+typedef void (*FContactResponse)(const SContact &Contact, vec2 *pVel, void *pUser);
 
 typedef bool (*CALLBACK_SWITCHACTIVE)(unsigned char Number, void *pUser);
 struct CAntibotMapData;
@@ -65,7 +68,7 @@ public:
 	int IntersectLineTeleWeapon(vec2 Pos0, vec2 Pos1, vec2 *pOutCollision, vec2 *pOutBeforeCollision, int *pTeleNr = nullptr) const;
 	int IntersectLineTeleHook(vec2 Pos0, vec2 Pos1, vec2 *pOutCollision, vec2 *pOutBeforeCollision, int *pTeleNr = nullptr) const;
 	void MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, float Elasticity, int *pBounces) const;
-	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, FContactCallback pfnOnContact = nullptr, void *pUser = nullptr) const;
+	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, FContactResponse pfnOnContact, void *pUser) const;
 	bool TestBox(vec2 Pos, vec2 Size) const;
 	bool IsOnGround(vec2 Pos, float Size) const;
 
@@ -162,7 +165,7 @@ public:
 	const std::vector<vec2> &TeleOthers(int Number) { return m_TeleOthers[Number]; }
 
 private:
-	void ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, FContactCallback pfnOnContact, void *pUser) const;
+	void ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, vec2 *pVel, FContactResponse pfnOnContact, void *pUser) const;
 
 	CLayers *m_pLayers;
 

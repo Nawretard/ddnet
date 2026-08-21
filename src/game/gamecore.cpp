@@ -11,6 +11,7 @@
 
 #include <engine/shared/config.h>
 
+#include <algorithm>
 #include <limits>
 
 const char *CTuningParams::ms_apNames[] =
@@ -535,25 +536,23 @@ void CCharacterCore::TickDeferred()
 		m_Vel = normalize(m_Vel) * 6000;
 }
 
-namespace {
-
-// A surface holds the tee up when it faces against gravity. Whether it counts at all
-// is the body's business, and DDNet only lets a floor with elasticity ground a tee.
-struct SGroundCheck
+void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel)
 {
-	vec2 m_Down;
-	bool m_Elastic;
-	bool m_Grounded;
+	const float Bounce = -std::clamp(ElasticityAlong(Contact.Normal, Elasticity), -1.0f, 1.0f);
+	if(Contact.Normal.x != 0.0f)
+		pVel->x *= Bounce;
+	else
+		pVel->y *= Bounce;
+}
 
-	static void OnContact(const SContact &Contact, void *pUser)
-	{
-		SGroundCheck *pThis = static_cast<SGroundCheck *>(pUser);
-		if(pThis->m_Elastic && dot(Contact.Normal, pThis->m_Down) < 0.0f)
-			pThis->m_Grounded = true;
-	}
-};
-
-} // namespace
+void SBodyContacts::OnContact(const SContact &Contact, vec2 *pVel, void *pUser)
+{
+	SBodyContacts *pThis = static_cast<SBodyContacts *>(pUser);
+	const bool Elastic = ElasticityAlong(Contact.Normal, pThis->m_Elasticity) > 0.0f;
+	BounceOffContact(Contact, pThis->m_Elasticity, pVel);
+	if(Elastic && dot(Contact.Normal, pThis->m_Down) < 0.0f)
+		pThis->m_Grounded = true;
+}
 
 void CCharacterCore::Move()
 {
@@ -564,13 +563,10 @@ void CCharacterCore::Move()
 	vec2 NewPos = m_Pos;
 
 	vec2 OldVel = m_Vel;
-	SGroundCheck GroundCheck = {vec2(0.0f, 1.0f), (float)m_Tuning.m_GroundElasticityY > 0.0f, false};
-	m_pCollision->MoveBox(&NewPos, &m_Vel, PhysicalSizeVec2(),
-		vec2(m_Tuning.m_GroundElasticityX,
-			m_Tuning.m_GroundElasticityY),
-		SGroundCheck::OnContact, &GroundCheck);
+	SBodyContacts Contacts = {vec2(m_Tuning.m_GroundElasticityX, m_Tuning.m_GroundElasticityY)};
+	m_pCollision->MoveBox(&NewPos, &m_Vel, PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
 
-	if(GroundCheck.m_Grounded)
+	if(Contacts.m_Grounded)
 	{
 		m_Jumped &= ~2;
 		m_JumpedTotal = 0;
