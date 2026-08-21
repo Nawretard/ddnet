@@ -14,6 +14,7 @@
 #include <game/teamscore.h>
 
 #include <limits>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -201,8 +202,38 @@ public:
 	CDirection2 Side() const { return CDirection2(vec2(m_Unit.y, -m_Unit.x)); }
 };
 
+// The directions gravity can be set to. Their order is an eighth turn per step, in the
+// same sense as CDirection2::Side, so two presets apart is a quarter turn to the right.
+enum EGravityPreset
+{
+	GRAVITY_DOWN = 0,
+	GRAVITY_DOWN_RIGHT,
+	GRAVITY_RIGHT,
+	GRAVITY_UP_RIGHT,
+	GRAVITY_UP,
+	GRAVITY_UP_LEFT,
+	GRAVITY_LEFT,
+	GRAVITY_DOWN_LEFT,
+	NUM_GRAVITY_PRESETS,
+};
+
+CDirection2 ResolveGravity(EGravityPreset Preset);
+
+inline bool IsGravityPreset(int Value) { return Value >= 0 && Value < NUM_GRAVITY_PRESETS; }
+
+// The wire shape of a gravity wish, the same one m_WantedWeapon uses: zero asks for
+// nothing, so a client that never heard of gravity leaves the body's own alone.
+inline int AskForGravity(EGravityPreset Preset) { return Preset + 1; }
+
+inline std::optional<EGravityPreset> GravityAskedFor(int Wanted)
+{
+	if(!IsGravityPreset(Wanted - 1))
+		return std::nullopt;
+	return (EGravityPreset)(Wanted - 1);
+}
+
 // The way a body falls until something gives it another one.
-inline CDirection2 DefaultGravityDown() { return CDirection2::Normalized(vec2(0.0f, 1.0f)); }
+inline CDirection2 DefaultGravityDown() { return ResolveGravity(GRAVITY_DOWN); }
 
 // How far past its feet a body still counts as standing on a surface.
 constexpr float GROUND_REACH = 5.0f;

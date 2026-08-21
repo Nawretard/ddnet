@@ -199,6 +199,13 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	m_MoveRestrictions = m_pCollision->GetMoveRestrictions(UseInput ? IsSwitchActiveCb : nullptr, this, m_Pos);
 	m_TriggeredEvents = 0;
 
+	// Read before anything asks which way is down, so the whole tick runs in one frame.
+	if(UseInput)
+	{
+		if(const std::optional<EGravityPreset> Wanted = GravityAskedFor(m_Input.m_WantedGravity))
+			m_GravityDown = ResolveGravity(*Wanted);
+	}
+
 	// get ground state
 	const bool Grounded = StandsOnSurface(m_pCollision, m_Pos, PhysicalSizeVec2(), m_GravityDown);
 	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
@@ -539,6 +546,21 @@ void CCharacterCore::TickDeferred()
 	// clamp the velocity to something sane
 	if(length(m_Vel) > 6000)
 		m_Vel = normalize(m_Vel) * 6000;
+}
+
+CDirection2 ResolveGravity(EGravityPreset Preset)
+{
+	dbg_assert(IsGravityPreset(Preset), "unknown gravity preset");
+	static const vec2 s_aDown[NUM_GRAVITY_PRESETS] = {
+		vec2(0.0f, 1.0f),
+		vec2(1.0f, 1.0f),
+		vec2(1.0f, 0.0f),
+		vec2(1.0f, -1.0f),
+		vec2(0.0f, -1.0f),
+		vec2(-1.0f, -1.0f),
+		vec2(-1.0f, 0.0f),
+		vec2(-1.0f, 1.0f)};
+	return CDirection2::Normalized(s_aDown[Preset]);
 }
 
 bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down)

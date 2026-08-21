@@ -351,3 +351,90 @@ TEST(GameCore, ScaleAlongScalesExactlyTheComponentItIsGiven)
 	EXPECT_EQ(V.y, 3.70500016f);
 	EXPECT_EQ(V.x, 2.4000001f);
 }
+
+TEST(GameCore, TheCardinalGravityPresetsAreExactlyTheCardinalDirections)
+{
+	// The exactness the axis operations rest on: a cardinal down must be the cardinal
+	// vector itself, not a rounded rotation of one.
+	EXPECT_EQ(ResolveGravity(GRAVITY_DOWN).Unit(), vec2(0.0f, 1.0f));
+	EXPECT_EQ(ResolveGravity(GRAVITY_RIGHT).Unit(), vec2(1.0f, 0.0f));
+	EXPECT_EQ(ResolveGravity(GRAVITY_UP).Unit(), vec2(0.0f, -1.0f));
+	EXPECT_EQ(ResolveGravity(GRAVITY_LEFT).Unit(), vec2(-1.0f, 0.0f));
+}
+
+TEST(GameCore, EveryGravityPresetIsAUnitDirection)
+{
+	for(int Preset = 0; Preset < NUM_GRAVITY_PRESETS; Preset++)
+	{
+		EXPECT_NEAR(length(ResolveGravity((EGravityPreset)Preset).Unit()), 1.0f, 1e-6f) << "preset " << Preset;
+	}
+}
+
+TEST(GameCore, TwoPresetsApartIsAQuarterTurnTowardsTheBodysRight)
+{
+	// The order is an eighth turn per step, in the same sense as Side(). Inserting a
+	// preset out of order would break the wire value's meaning, so it is checked here.
+	for(int Preset = 0; Preset < NUM_GRAVITY_PRESETS; Preset++)
+	{
+		const int QuarterTurn = (Preset + 2) % NUM_GRAVITY_PRESETS;
+		EXPECT_EQ(ResolveGravity((EGravityPreset)Preset).Side().Unit(), ResolveGravity((EGravityPreset)QuarterTurn).Unit()) << "preset " << Preset;
+	}
+}
+
+TEST(GameCore, ABodyFallsUnderTheGravityItsInputAsksFor)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Input.m_WantedGravity = AskForGravity(GRAVITY_UP);
+
+	Core.Tick(true);
+
+	EXPECT_EQ(Core.m_GravityDown.Unit(), vec2(0.0f, -1.0f));
+	// The new gravity applies on the very tick that asks for it, not the next one.
+	EXPECT_EQ(Core.m_Vel.y, -0.5f);
+}
+
+TEST(GameCore, AGravityNobodyDefinedLeavesTheBodyFallingAsItWas)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	const vec2 Down = DefaultGravityDown().Unit();
+
+	for(const int Wanted : {-1, AskForGravity(GRAVITY_DOWN_LEFT) + 1, 12345})
+	{
+		CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+		Core.m_Input.m_WantedGravity = Wanted;
+
+		Core.Tick(true);
+
+		EXPECT_EQ(Core.m_GravityDown.Unit(), Down) << "wanted " << Wanted;
+	}
+}
+
+TEST(GameCore, ACoreTickedWithoutInputKeepsItsGravity)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Input.m_WantedGravity = AskForGravity(GRAVITY_UP);
+
+	Core.Tick(false);
+
+	EXPECT_EQ(Core.m_GravityDown.Unit(), DefaultGravityDown().Unit());
+}
+
+TEST(GameCore, AnInputThatAsksForNothingLeavesTheBodyOnTheGravityItHad)
+{
+	// The zero an old client sends, and the one a body keeps when its gravity was set
+	// by something other than its own input.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_GravityDown = ResolveGravity(GRAVITY_LEFT);
+	Core.m_Input.m_WantedGravity = 0;
+
+	Core.Tick(true);
+
+	EXPECT_EQ(Core.m_GravityDown.Unit(), vec2(-1.0f, 0.0f));
+}
