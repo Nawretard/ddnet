@@ -18,6 +18,7 @@
 #include <game/client/components/scoreboard.h>
 #include <game/client/gameclient.h>
 #include <game/collision.h>
+#include <game/gamecore.h>
 
 #include <algorithm>
 
@@ -170,6 +171,28 @@ void CControls::OnConsoleInit()
 		static CInputSet s_Set = {this, {&m_aInputData[0].m_PrevWeapon, &m_aInputData[1].m_PrevWeapon}, 0};
 		Console()->Register("+prevweapon", "", CFGFLAG_CLIENT, ConKeyInputNextPrevWeapon, &s_Set, "Switch to previous weapon");
 	}
+	{
+		// Listed in preset order so that each command carries the preset it is named after.
+		static const struct
+		{
+			const char *m_pCommand;
+			const char *m_pHelp;
+		} s_aGravities[NUM_GRAVITY_PRESETS] = {
+			{"+gravitydown", "Fall down"},
+			{"+gravitydownright", "Fall down and right"},
+			{"+gravityright", "Fall right"},
+			{"+gravityupright", "Fall up and right"},
+			{"+gravityup", "Fall up"},
+			{"+gravityupleft", "Fall up and left"},
+			{"+gravityleft", "Fall left"},
+			{"+gravitydownleft", "Fall down and left"}};
+		static CInputSet s_aSets[NUM_GRAVITY_PRESETS];
+		for(int Preset = 0; Preset < NUM_GRAVITY_PRESETS; Preset++)
+		{
+			s_aSets[Preset] = {this, {&m_aInputData[0].m_WantedGravity, &m_aInputData[1].m_WantedGravity}, AskForGravity((EGravityPreset)Preset)};
+			Console()->Register(s_aGravities[Preset].m_pCommand, "", CFGFLAG_CLIENT, ConKeyInputSet, &s_aSets[Preset], s_aGravities[Preset].m_pHelp);
+		}
+	}
 }
 
 void CControls::OnMessage(int Msg, void *pRawMsg)
@@ -276,6 +299,7 @@ int CControls::SnapInput(int *pData)
 				pDummyInput->m_TargetX = m_aInputData[g_Config.m_ClDummy].m_TargetX;
 				pDummyInput->m_TargetY = m_aInputData[g_Config.m_ClDummy].m_TargetY;
 				pDummyInput->m_WantedWeapon = m_aInputData[g_Config.m_ClDummy].m_WantedWeapon;
+				pDummyInput->m_WantedGravity = m_aInputData[g_Config.m_ClDummy].m_WantedGravity;
 
 				if(!g_Config.m_ClDummyControl)
 					pDummyInput->m_Fire += m_aInputData[g_Config.m_ClDummy].m_Fire - m_aLastData[g_Config.m_ClDummy].m_Fire;
@@ -324,6 +348,7 @@ int CControls::SnapInput(int *pData)
 		Send = Send || m_aInputData[g_Config.m_ClDummy].m_WantedWeapon != m_aLastData[g_Config.m_ClDummy].m_WantedWeapon;
 		Send = Send || m_aInputData[g_Config.m_ClDummy].m_NextWeapon != m_aLastData[g_Config.m_ClDummy].m_NextWeapon;
 		Send = Send || m_aInputData[g_Config.m_ClDummy].m_PrevWeapon != m_aLastData[g_Config.m_ClDummy].m_PrevWeapon;
+		Send = Send || m_aInputData[g_Config.m_ClDummy].m_WantedGravity != m_aLastData[g_Config.m_ClDummy].m_WantedGravity;
 		Send = Send || time_get() > m_LastSendTime + time_freq() / 25; // send at least 25 Hz
 		Send = Send || (GameClient()->m_Snap.m_pLocalCharacter && GameClient()->m_Snap.m_pLocalCharacter->m_Weapon == WEAPON_NINJA && (m_aInputData[g_Config.m_ClDummy].m_Direction || m_aInputData[g_Config.m_ClDummy].m_Jump || m_aInputData[g_Config.m_ClDummy].m_Hook));
 	}
