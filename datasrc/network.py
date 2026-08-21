@@ -124,8 +124,6 @@ Objects = [
 		NetIntAny("m_WantedWeapon"),
 		NetIntAny("m_NextWeapon"),
 		NetIntAny("m_PrevWeapon"),
-
-		NetIntAny("m_GravityFlip"),
 	]),
 
 	NetObject("Projectile", [

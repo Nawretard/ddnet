@@ -515,29 +515,21 @@ bool CCollision::TestBox(vec2 Pos, vec2 Size) const
 	return false;
 }
 
-bool CCollision::IsOnGround(vec2 Pos, float Size, vec2 GravityDown) const
+bool CCollision::IsOnGround(vec2 Pos, float Size) const
 {
-	// summed in this order so the default frame reduces to upstream's own
-	// `Pos.y + Size / 2 + 5` associativity, down to the last bit
-	const vec2 AlongGround = vec2(-GravityDown.y, GravityDown.x);
-	const vec2 Feet = Pos + GravityDown * (Size / 2) + GravityDown * 5;
-
-	if(CheckPoint(Feet - AlongGround * (Size / 2)))
+	if(CheckPoint(Pos.x + Size / 2, Pos.y + Size / 2 + 5))
 		return true;
-	if(CheckPoint(Feet + AlongGround * (Size / 2)))
+	if(CheckPoint(Pos.x - Size / 2, Pos.y + Size / 2 + 5))
 		return true;
 
 	return false;
 }
 
-void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded, int *pBounceFrames, vec2 GravityDown) const
+void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded) const
 {
 	// do the move
 	vec2 Pos = *pInoutPos;
 	vec2 Vel = *pInoutVel;
-
-	// which world axis is the floor, and which one is a wall, follows gravity
-	const bool GravityAlongY = GravityDown.x == 0.0f;
 
 	float Distance = length(Vel);
 	int Max = (int)Distance;
@@ -573,37 +565,17 @@ void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elast
 
 				if(TestBox(vec2(Pos.x, NewPos.y), Size))
 				{
-					if(GravityAlongY)
-					{
-						if(pGrounded && ElasticityY > 0 && Vel.y * GravityDown.y > 0)
-							*pGrounded = true;
-						Vel.y *= -ElasticityY;
-					}
-					else
-					{
-						Vel.y = -Vel.y;
-						if(pBounceFrames)
-							*pBounceFrames = 15;
-					}
+					if(pGrounded && ElasticityY > 0 && Vel.y > 0)
+						*pGrounded = true;
 					NewPos.y = Pos.y;
+					Vel.y *= -ElasticityY;
 					Hits++;
 				}
 
 				if(TestBox(vec2(NewPos.x, Pos.y), Size))
 				{
-					if(GravityAlongY)
-					{
-						Vel.x = -Vel.x;
-						if(pBounceFrames)
-							*pBounceFrames = 15;
-					}
-					else
-					{
-						if(pGrounded && ElasticityX > 0 && Vel.x * GravityDown.x > 0)
-							*pGrounded = true;
-						Vel.x *= -ElasticityX;
-					}
 					NewPos.x = Pos.x;
+					Vel.x *= -ElasticityX;
 					Hits++;
 				}
 
@@ -611,9 +583,7 @@ void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elast
 				// this is a real _corner case_!
 				if(Hits == 0)
 				{
-					if(pGrounded && ElasticityY > 0 && Vel.y * GravityDown.y > 0)
-						*pGrounded = true;
-					if(pGrounded && ElasticityX > 0 && Vel.x * GravityDown.x > 0)
+					if(pGrounded && ElasticityY > 0 && Vel.y > 0)
 						*pGrounded = true;
 					NewPos.y = Pos.y;
 					Vel.y *= -ElasticityY;

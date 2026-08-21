@@ -140,10 +140,6 @@ void CControls::OnConsoleInit()
 		static CInputState s_State = {this, {&m_aShowHookColl[0], &m_aShowHookColl[1]}};
 		Console()->Register("+showhookcoll", "", CFGFLAG_CLIENT, ConKeyInputState, &s_State, "Show Hook Collision");
 	}
-	{
-		static CInputState s_State = {this, {&m_aInputData[0].m_GravityFlip, &m_aInputData[1].m_GravityFlip}};
-		Console()->Register("+gravityflip", "", CFGFLAG_CLIENT, ConKeyInputCounter, &s_State, "Rotate gravity by a quarter turn");
-	}
 
 	{
 		static CInputSet s_Set = {this, {&m_aInputData[0].m_WantedWeapon, &m_aInputData[1].m_WantedWeapon}, 1};

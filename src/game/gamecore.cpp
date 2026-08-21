@@ -164,7 +164,6 @@ void CCharacterCore::Reset()
 	m_JumpedTotal = 0;
 	m_Jumps = 2;
 	m_TriggeredEvents = 0;
-	m_GravityDir = 0;
 
 	// DDNet Character
 	m_Solo = false;
@@ -198,30 +197,11 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	m_MoveRestrictions = m_pCollision->GetMoveRestrictions(UseInput ? IsSwitchActiveCb : nullptr, this, m_Pos);
 	m_TriggeredEvents = 0;
 
-	if(m_BounceFrames > 0)
-		--m_BounceFrames;
-
-	// Derived, never accumulated: replaying an input must not flip a second time.
-	// The momentum turns with the frame, so a flip reads as the world rotating
-	// around the tee rather than as gravity changing under it.
-	if(UseInput)
-	{
-		const int NewGravityDir = m_Input.m_GravityFlip & 3;
-		if(NewGravityDir != m_GravityDir)
-		{
-			m_Vel = RotateQuarters(m_Vel, NewGravityDir - m_GravityDir);
-			m_GravityDir = NewGravityDir;
-		}
-	}
-
-	const vec2 Down = GravityDown(m_GravityDir);
-	const vec2 Right = GravityRight(m_GravityDir);
-
 	// get ground state
-	const bool Grounded = m_pCollision->IsOnGround(m_Pos, PhysicalSize(), Down);
+	const bool Grounded = m_pCollision->IsOnGround(m_Pos, PhysicalSize());
 	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
 
-	AddVelAlong(m_Vel, Down, m_Tuning.m_Gravity);
+	m_Vel.y += m_Tuning.m_Gravity;
 
 	float MaxSpeed = Grounded ? m_Tuning.m_GroundControlSpeed : m_Tuning.m_AirControlSpeed;
 	float Accel = Grounded ? m_Tuning.m_GroundControlAccel : m_Tuning.m_AirControlAccel;
@@ -257,7 +237,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 				if(Grounded && (!(m_Jumped & 2) || m_Jumps != 0))
 				{
 					m_TriggeredEvents |= COREEVENT_GROUND_JUMP;
-					SetVelAlong(m_Vel, Down, -m_Tuning.m_GroundJumpImpulse);
+					m_Vel.y = -m_Tuning.m_GroundJumpImpulse;
 					if(m_Jumps > 1)
 					{
 						m_Jumped |= 1;
@@ -271,7 +251,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 				else if(!(m_Jumped & 2))
 				{
 					m_TriggeredEvents |= COREEVENT_AIR_JUMP;
-					SetVelAlong(m_Vel, Down, -m_Tuning.m_AirJumpImpulse);
+					m_Vel.y = -m_Tuning.m_AirJumpImpulse;
 					m_Jumped |= 3;
 					m_JumpedTotal++;
 				}
@@ -313,19 +293,12 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	}
 
 	// add the speed modification according to players wanted direction
-	if(m_BounceFrames <= 0)
-	{
-		float VelAlongGround = VelAlong(m_Vel, Right);
-		if(m_Direction < 0)
-			VelAlongGround = SaturatedAdd(-MaxSpeed, MaxSpeed, VelAlongGround, -Accel);
-		if(m_Direction > 0)
-			VelAlongGround = SaturatedAdd(-MaxSpeed, MaxSpeed, VelAlongGround, Accel);
-		if(m_Direction == 0)
-			VelAlongGround *= Friction;
-		SetVelAlong(m_Vel, Right, VelAlongGround);
-	}
-	if(m_BounceFrames > 0)
-		--m_BounceFrames;
+	if(m_Direction < 0)
+		m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Vel.x, -Accel);
+	if(m_Direction > 0)
+		m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Vel.x, Accel);
+	if(m_Direction == 0)
+		m_Vel.x *= Friction;
 
 	// do hook
 	if(m_HookState == HOOK_IDLE)
@@ -564,26 +537,18 @@ void CCharacterCore::TickDeferred()
 
 void CCharacterCore::Move()
 {
-	if(m_BounceFrames > 0)
-		--m_BounceFrames;
-	const vec2 Down = GravityDown(m_GravityDir);
-	const vec2 Right = GravityRight(m_GravityDir);
-
 	float RampValue = VelocityRamp(length(m_Vel) * 50, m_Tuning.m_VelrampStart, m_Tuning.m_VelrampRange, m_Tuning.m_VelrampCurvature);
 
-	SetVelAlong(m_Vel, Right, VelAlong(m_Vel, Right) * RampValue);
+	m_Vel.x = m_Vel.x * RampValue;
 
 	vec2 NewPos = m_Pos;
 
 	vec2 OldVel = m_Vel;
 	bool Grounded = false;
-	// MoveBox reads elasticity per world axis, so the ground value has to sit on whichever axis gravity uses
-	const vec2 Elasticity = (m_GravityDir & 1) ?
-					vec2(m_Tuning.m_GroundElasticityY, m_Tuning.m_GroundElasticityX) :
-					vec2(m_Tuning.m_GroundElasticityX, m_Tuning.m_GroundElasticityY);
 	m_pCollision->MoveBox(&NewPos, &m_Vel, PhysicalSizeVec2(),
-		Elasticity,
-		&Grounded, &m_BounceFrames, Down);
+		vec2(m_Tuning.m_GroundElasticityX,
+			m_Tuning.m_GroundElasticityY),
+		&Grounded);
 
 	if(Grounded)
 	{
@@ -591,20 +556,18 @@ void CCharacterCore::Move()
 		m_JumpedTotal = 0;
 	}
 
-	const float VelAlongGround = VelAlong(m_Vel, Right);
 	m_Colliding = 0;
-	if(VelAlongGround < 0.001f && VelAlongGround > -0.001f)
+	if(m_Vel.x < 0.001f && m_Vel.x > -0.001f)
 	{
-		const float OldVelAlongGround = VelAlong(OldVel, Right);
-		if(OldVelAlongGround > 0)
+		if(OldVel.x > 0)
 			m_Colliding = 1;
-		else if(OldVelAlongGround < 0)
+		else if(OldVel.x < 0)
 			m_Colliding = 2;
 	}
 	else
 		m_LeftWall = true;
 
-	SetVelAlong(m_Vel, Right, VelAlongGround * (1.0f / RampValue));
+	m_Vel.x = m_Vel.x * (1.0f / RampValue);
 
 	if(m_pWorld && (m_Super || (m_Tuning.m_PlayerCollision && !m_CollisionDisabled && !m_Solo)))
 	{
