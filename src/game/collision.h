@@ -28,6 +28,21 @@ enum
 
 vec2 ClampVel(int MoveRestriction, vec2 Vel);
 
+// What the geometry knows about one touch between a moving body and the world.
+// Elasticity and "is this the ground" are deliberately absent: they depend on the
+// body's tuning and on where gravity points, neither of which the world knows.
+struct SContact
+{
+	vec2 Normal; // unit, points out of the surface that was hit
+	vec2 Point;
+	int Material; // the tile the surface belongs to, TILE_SOLID or TILE_NOHOOK today
+};
+
+// Contacts are streamed as they happen rather than collected, so a move produces
+// as many as it has sub-steps. A single sub-step yields at most two: an axis-aligned
+// box advancing by at most one pixel can only meet one x face and one y face.
+typedef void (*FContactCallback)(const SContact &Contact, void *pUser);
+
 typedef bool (*CALLBACK_SWITCHACTIVE)(unsigned char Number, void *pUser);
 struct CAntibotMapData;
 
@@ -50,7 +65,7 @@ public:
 	int IntersectLineTeleWeapon(vec2 Pos0, vec2 Pos1, vec2 *pOutCollision, vec2 *pOutBeforeCollision, int *pTeleNr = nullptr) const;
 	int IntersectLineTeleHook(vec2 Pos0, vec2 Pos1, vec2 *pOutCollision, vec2 *pOutBeforeCollision, int *pTeleNr = nullptr) const;
 	void MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, float Elasticity, int *pBounces) const;
-	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded = nullptr) const;
+	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded = nullptr, FContactCallback pfnOnContact = nullptr, void *pUser = nullptr) const;
 	bool TestBox(vec2 Pos, vec2 Size) const;
 	bool IsOnGround(vec2 Pos, float Size) const;
 
@@ -147,6 +162,8 @@ public:
 	const std::vector<vec2> &TeleOthers(int Number) { return m_TeleOthers[Number]; }
 
 private:
+	void ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, FContactCallback pfnOnContact, void *pUser) const;
+
 	CLayers *m_pLayers;
 
 	int m_Width;

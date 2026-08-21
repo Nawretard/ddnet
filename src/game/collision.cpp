@@ -525,7 +525,48 @@ bool CCollision::IsOnGround(vec2 Pos, float Size) const
 	return false;
 }
 
-void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded) const
+// The box leads with the face that -Normal points at, so that face is what it
+// touched. The point is the middle of whichever of its two corners sit in a solid
+// tile; finding neither means the box was already overlapping before the move,
+// which the sweep does not resolve.
+void CCollision::ReportContact(vec2 BoxPos, vec2 Size, vec2 Normal, FContactCallback pfnOnContact, void *pUser) const
+{
+	const vec2 HalfSize = Size * 0.5f;
+	const vec2 Face = BoxPos - vec2(Normal.x * HalfSize.x, Normal.y * HalfSize.y);
+	const vec2 Along = vec2(-Normal.y, Normal.x);
+	const vec2 Corner0 = Face - vec2(Along.x * HalfSize.x, Along.y * HalfSize.y);
+	const vec2 Corner1 = Face + vec2(Along.x * HalfSize.x, Along.y * HalfSize.y);
+
+	const int Material0 = IsSolid(round_to_int(Corner0.x), round_to_int(Corner0.y));
+	const int Material1 = IsSolid(round_to_int(Corner1.x), round_to_int(Corner1.y));
+
+	SContact Contact;
+	Contact.Normal = Normal;
+	if(Material0 && Material1)
+	{
+		Contact.Point = Face;
+		Contact.Material = Material0;
+	}
+	else if(Material0)
+	{
+		Contact.Point = Corner0;
+		Contact.Material = Material0;
+	}
+	else if(Material1)
+	{
+		Contact.Point = Corner1;
+		Contact.Material = Material1;
+	}
+	else
+	{
+		Contact.Point = Face;
+		Contact.Material = 0;
+	}
+
+	pfnOnContact(Contact, pUser);
+}
+
+void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded, FContactCallback pfnOnContact, void *pUser) const
 {
 	// do the move
 	vec2 Pos = *pInoutPos;
@@ -567,6 +608,8 @@ void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elast
 				{
 					if(pGrounded && ElasticityY > 0 && Vel.y > 0)
 						*pGrounded = true;
+					if(pfnOnContact)
+						ReportContact(vec2(Pos.x, NewPos.y), Size, vec2(0.0f, Vel.y > 0.0f ? -1.0f : 1.0f), pfnOnContact, pUser);
 					NewPos.y = Pos.y;
 					Vel.y *= -ElasticityY;
 					Hits++;
@@ -574,6 +617,8 @@ void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elast
 
 				if(TestBox(vec2(NewPos.x, Pos.y), Size))
 				{
+					if(pfnOnContact)
+						ReportContact(vec2(NewPos.x, Pos.y), Size, vec2(Vel.x > 0.0f ? -1.0f : 1.0f, 0.0f), pfnOnContact, pUser);
 					NewPos.x = Pos.x;
 					Vel.x *= -ElasticityX;
 					Hits++;
@@ -585,6 +630,11 @@ void CCollision::MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elast
 				{
 					if(pGrounded && ElasticityY > 0 && Vel.y > 0)
 						*pGrounded = true;
+					if(pfnOnContact)
+					{
+						ReportContact(NewPos, Size, vec2(0.0f, Vel.y > 0.0f ? -1.0f : 1.0f), pfnOnContact, pUser);
+						ReportContact(NewPos, Size, vec2(Vel.x > 0.0f ? -1.0f : 1.0f, 0.0f), pfnOnContact, pUser);
+					}
 					NewPos.y = Pos.y;
 					Vel.y *= -ElasticityY;
 					NewPos.x = Pos.x;
