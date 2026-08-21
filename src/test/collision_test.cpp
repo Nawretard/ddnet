@@ -267,7 +267,8 @@ TEST(Collision, MovePointAdvancesFullyWhenNothingIsInTheWay)
 	vec2 Vel(3.0f, 4.0f);
 
 	// Unlike MoveBox, a point takes its whole velocity in one step.
-	World.Collision()->MovePoint(&Pos, &Vel, 0.1f, nullptr);
+	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
 
 	EXPECT_EQ(Pos, vec2(163.0f, 104.0f));
 	EXPECT_EQ(Vel, vec2(3.0f, 4.0f));
@@ -279,7 +280,8 @@ TEST(Collision, MovePointBouncesOffTheFloorWithoutAdvancing)
 	vec2 Pos(160.0f, 190.0f);
 	vec2 Vel(0.0f, 51.0f);
 
-	World.Collision()->MovePoint(&Pos, &Vel, 0.1f, nullptr);
+	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
 
 	// A blocked point stays exactly where it was.
 	EXPECT_EQ(Pos, vec2(160.0f, 190.0f));
@@ -292,7 +294,8 @@ TEST(Collision, MovePointBouncesOffAWall)
 	vec2 Pos(240.0f, 100.0f);
 	vec2 Vel(51.0f, 0.0f);
 
-	World.Collision()->MovePoint(&Pos, &Vel, 0.1f, nullptr);
+	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
 
 	EXPECT_EQ(Pos, vec2(240.0f, 100.0f));
 	EXPECT_EQ(Vel.x, -5.0999999f);
@@ -318,9 +321,26 @@ TEST(Collision, MovePointReflectsBothAxesWhenOnlyTheDiagonalCollides)
 	ASSERT_FALSE(World.Collision()->CheckPoint(Pos.x + Vel.x, Pos.y));
 	ASSERT_FALSE(World.Collision()->CheckPoint(Pos.x, Pos.y + Vel.y));
 
-	World.Collision()->MovePoint(&Pos, &Vel, 0.1f, nullptr);
+	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
 
 	EXPECT_EQ(Pos, vec2(158.0f, 158.0f));
 	EXPECT_EQ(Vel.x, -0.400000006f);
 	EXPECT_EQ(Vel.y, -0.400000006f);
+}
+
+TEST(Collision, MovePointReportsAPointContact)
+{
+	CAsciiWorld World = Room();
+	vec2 Pos(160.0f, 190.0f);
+	vec2 Vel(0.0f, 51.0f);
+	SContactLog Log = {vec2(0.1f, 0.1f)};
+
+	World.Collision()->MovePoint(&Pos, &Vel, SContactLog::Record, &Log);
+
+	// A point has no face, so its contact sits exactly where the probe landed.
+	ASSERT_EQ(Log.m_vContacts.size(), 1u);
+	EXPECT_EQ(Log.m_vContacts[0].Normal, vec2(0.0f, -1.0f));
+	EXPECT_EQ(Log.m_vContacts[0].Point, vec2(160.0f, 241.0f));
+	EXPECT_EQ(Log.m_vContacts[0].Material, TILE_SOLID);
 }

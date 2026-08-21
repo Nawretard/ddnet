@@ -127,7 +127,8 @@ void CLaser::DoBounce()
 				f = Collision()->GetTile(round_to_int(Coltile.x), round_to_int(Coltile.y));
 				Collision()->SetCollisionAt(round_to_int(Coltile.x), round_to_int(Coltile.y), TILE_SOLID);
 			}
-			Collision()->MovePoint(&TempPos, &TempDir, 1.0f, nullptr);
+			SBodyContacts Contacts = {vec2(1.0f, 1.0f)};
+			Collision()->MovePoint(&TempPos, &TempDir, SBodyContacts::OnContact, &Contacts);
 			if(Res == -1)
 			{
 				Collision()->SetCollisionAt(round_to_int(Coltile.x), round_to_int(Coltile.y), f);

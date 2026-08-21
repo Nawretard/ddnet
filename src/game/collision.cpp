@@ -463,41 +463,40 @@ int CCollision::IntersectLineTeleWeapon(vec2 Pos0, vec2 Pos1, vec2 *pOutCollisio
 }
 
 // TODO: OPT: rewrite this smarter!
-void CCollision::MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, float Elasticity, int *pBounces) const
+// A point is a box with no size, so the same face probe answers for it. Unlike a box
+// it takes its whole velocity in one step, and a blocked one does not advance at all.
+void CCollision::MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, FContactResponse pfnOnContact, void *pUser) const
 {
-	if(pBounces)
-		*pBounces = 0;
+	dbg_assert(pfnOnContact != nullptr, "a sweep needs a contact response");
 
-	vec2 Pos = *pInoutPos;
-	vec2 Vel = *pInoutVel;
-	if(CheckPoint(Pos + Vel))
-	{
-		int Affected = 0;
-		if(CheckPoint(Pos.x + Vel.x, Pos.y))
-		{
-			pInoutVel->x *= -Elasticity;
-			if(pBounces)
-				(*pBounces)++;
-			Affected++;
-		}
+	const vec2 Pos = *pInoutPos;
+	const vec2 Vel = *pInoutVel;
+	const vec2 NoSize = vec2(0.0f, 0.0f);
 
-		if(CheckPoint(Pos.x, Pos.y + Vel.y))
-		{
-			pInoutVel->y *= -Elasticity;
-			if(pBounces)
-				(*pBounces)++;
-			Affected++;
-		}
-
-		if(Affected == 0)
-		{
-			pInoutVel->x *= -Elasticity;
-			pInoutVel->y *= -Elasticity;
-		}
-	}
-	else
+	if(!CheckPoint(Pos + Vel))
 	{
 		*pInoutPos = Pos + Vel;
+		return;
+	}
+
+	int Affected = 0;
+
+	if(CheckPoint(Pos.x + Vel.x, Pos.y))
+	{
+		ReportContact(vec2(Pos.x + Vel.x, Pos.y), NoSize, vec2(Vel.x > 0.0f ? -1.0f : 1.0f, 0.0f), pInoutVel, pfnOnContact, pUser);
+		Affected++;
+	}
+
+	if(CheckPoint(Pos.x, Pos.y + Vel.y))
+	{
+		ReportContact(vec2(Pos.x, Pos.y + Vel.y), NoSize, vec2(0.0f, Vel.y > 0.0f ? -1.0f : 1.0f), pInoutVel, pfnOnContact, pUser);
+		Affected++;
+	}
+
+	if(Affected == 0)
+	{
+		ReportContact(Pos + Vel, NoSize, vec2(Vel.x > 0.0f ? -1.0f : 1.0f, 0.0f), pInoutVel, pfnOnContact, pUser);
+		ReportContact(Pos + Vel, NoSize, vec2(0.0f, Vel.y > 0.0f ? -1.0f : 1.0f), pInoutVel, pfnOnContact, pUser);
 	}
 }
 
