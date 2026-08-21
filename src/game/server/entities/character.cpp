@@ -549,7 +549,14 @@ void CCharacter::FireWeapon()
 			vec2 Temp = pTarget->m_Core.m_Vel + normalize(Dir + vec2(0.f, -1.1f)) * 10.0f;
 			Temp = ClampVel(pTarget->m_MoveRestrictions, Temp);
 			Temp -= pTarget->m_Core.m_Vel;
-			pTarget->TakeDamage((vec2(0.f, -1.0f) + Temp) * Strength, g_pData->m_Weapons.m_Hammer.m_pBase->m_Damage,
+
+			vec2 Force = (vec2(0.f, -1.0f) + Temp) * Strength;
+
+			const float Momentum = dot(m_Core.m_Vel, Dir);
+			if(Momentum > 0.0f)
+				Force += Dir * Momentum * HAMMER_MOMENTUM_TRANSFER;
+
+			pTarget->TakeDamage(Force, g_pData->m_Weapons.m_Hammer.m_pBase->m_Damage,
 				m_pPlayer->GetCid(), m_Core.m_ActiveWeapon);
 			pTarget->Unfreeze();
 

@@ -20,6 +20,9 @@
 class CCollision;
 class CTeamsCore;
 
+// how much of the hammering tee's closing speed is handed over to its target
+constexpr float HAMMER_MOMENTUM_TRANSFER = 2.0f;
+
 class CTuneParam
 {
 	int m_Value;
@@ -178,6 +181,57 @@ public:
 
 typedef std::function<void(int ClientId, bool DisallowReset)> FAntiPingInterfereCallback;
 
+// Gravity is expressed as quarter turns of the standard frame. Every entry is 0 or +-1,
+// so rotating into and out of that frame is exact in floating point and stays deterministic.
+inline vec2 GravityDown(int GravityDir)
+{
+	static const vec2 s_aDown[4] = {vec2(0, 1), vec2(-1, 0), vec2(0, -1), vec2(1, 0)};
+	return s_aDown[GravityDir & 3];
+}
+
+inline vec2 GravityRight(int GravityDir)
+{
+	static const vec2 s_aRight[4] = {vec2(1, 0), vec2(0, 1), vec2(-1, 0), vec2(0, -1)};
+	return s_aRight[GravityDir & 3];
+}
+
+// Axis is always one of +-e_x, +-e_y, so touching one component beats projecting:
+// v += a * (x - dot(v, a)) would round, and the default frame has to stay
+// bit-identical to the expressions upstream writes by hand.
+// Quarter turns of the standard frame, in the same sense as GravityDown: it
+// maps (1,0) to (0,1). Sign flips and swaps only, so it is exact.
+inline vec2 RotateQuarters(vec2 Vec, int Quarters)
+{
+	switch(Quarters & 3)
+	{
+	case 1: return vec2(-Vec.y, Vec.x);
+	case 2: return vec2(-Vec.x, -Vec.y);
+	case 3: return vec2(Vec.y, -Vec.x);
+	default: return Vec;
+	}
+}
+
+inline float VelAlong(vec2 Vel, vec2 Axis)
+{
+	return Axis.x != 0.0f ? Axis.x * Vel.x : Axis.y * Vel.y;
+}
+
+inline void SetVelAlong(vec2 &Vel, vec2 Axis, float Value)
+{
+	if(Axis.x != 0.0f)
+		Vel.x = Axis.x * Value;
+	else
+		Vel.y = Axis.y * Value;
+}
+
+inline void AddVelAlong(vec2 &Vel, vec2 Axis, float Value)
+{
+	if(Axis.x != 0.0f)
+		Vel.x += Axis.x * Value;
+	else
+		Vel.y += Axis.y * Value;
+}
+
 class CCharacterCore
 {
 	CWorldCore *m_pWorld = nullptr;
@@ -227,6 +281,8 @@ public:
 	int m_Direction;
 	int m_Angle;
 	CNetObj_PlayerInput m_Input;
+
+	int m_GravityDir;
 
 	int m_TriggeredEvents;
 
@@ -283,6 +339,7 @@ private:
 	int m_HookedPlayer;
 	static bool IsSwitchActiveCb(unsigned char Number, void *pUser);
 
+	int m_BounceFrames = 0;
 	FAntiPingInterfereCallback m_AntiPingInterfereCallback = [](int ClientId, bool DisallowReset) {};
 };
 

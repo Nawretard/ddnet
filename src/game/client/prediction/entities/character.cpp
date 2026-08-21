@@ -367,6 +367,10 @@ void CCharacter::FireWeapon()
 				Force *= Strength;
 			}
 
+			const float Momentum = dot(m_Core.m_Vel, Dir);
+			if(Momentum > 0.0f)
+				Force += Dir * Momentum * HAMMER_MOMENTUM_TRANSFER;
+
 			pTarget->TakeDamage(Force, g_pData->m_Weapons.m_Hammer.m_pBase->m_Damage,
 				GetCid(), m_Core.m_ActiveWeapon);
 			pTarget->Unfreeze();
