@@ -522,3 +522,70 @@ TEST(GameCore, AnInputThatAsksForAGravityMovesThePresetTheWireCarries)
 
 	EXPECT_EQ(Core.m_Gravity, GRAVITY_RIGHT);
 }
+
+TEST(GameCore, TurningCarriesTheBodysMomentumIntoItsNewFrame)
+{
+	// The half a turning camera cannot do on its own: a body that kept its world
+	// velocity would appear to reverse the instant the view turns under it.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Vel = vec2(10.0f, 0.0f);
+
+	Core.TurnTo(GRAVITY_UP);
+
+	// Still ten to its own right, which is the world's left once it hangs over.
+	EXPECT_EQ(Core.m_Vel, vec2(-10.0f, 0.0f));
+	EXPECT_EQ(Along(Core.m_Vel, Core.m_GravityDown.Side()), 10.0f);
+}
+
+TEST(GameCore, TurningToTheGravityAlreadyHeldIsExactlyNothing)
+{
+	// m_WantedGravity is a standing wish that never returns to zero, so the turn is
+	// re-applied every tick. A diagonal frame does not recompose to the same floats,
+	// so a turn that was not a no-op here would drift the velocity every tick -- and
+	// drift it only on the body, never on the input-free core the server reckons with.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Vel = vec2(3.0f, -4.0f);
+	Core.TurnTo(GRAVITY_UP_LEFT);
+	const vec2 Turned = Core.m_Vel;
+
+	for(int i = 0; i < 10; i++)
+	{
+		Core.TurnTo(GRAVITY_UP_LEFT);
+	}
+
+	EXPECT_EQ(Core.m_Vel, Turned);
+}
+
+TEST(GameCore, TheWireSetsTheFrameWithoutTurningTheBody)
+{
+	// A snapshot carries a velocity the server has already turned. Turning it again
+	// on the way in would turn it twice.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Vel = vec2(10.0f, 0.0f);
+
+	Core.SetGravity(GRAVITY_UP);
+
+	EXPECT_EQ(Core.m_Vel, vec2(10.0f, 0.0f));
+	EXPECT_EQ(Core.m_Gravity, GRAVITY_UP);
+}
+
+TEST(GameCore, AnInputThatAsksForAGravityTurnsTheBodyItMoves)
+{
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_Vel = vec2(10.0f, 0.0f);
+	Core.m_Input.m_WantedGravity = AskForGravity(GRAVITY_UP);
+
+	Core.Tick(true);
+
+	// Turned first, then one tick of the new gravity and of air friction, both read
+	// on the body's own axes.
+	EXPECT_EQ(Core.m_Vel, vec2(-9.5f, -0.5f));
+}

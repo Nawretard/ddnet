@@ -203,7 +203,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	if(UseInput)
 	{
 		if(const std::optional<EGravityPreset> Wanted = GravityAskedFor(m_Input.m_WantedGravity))
-			SetGravity(*Wanted);
+			TurnTo(*Wanted);
 	}
 
 	// get ground state
@@ -570,6 +570,19 @@ void CCharacterCore::SetGravity(EGravityPreset Preset)
 {
 	m_Gravity = Preset;
 	m_GravityDown = ResolveGravity(Preset);
+}
+
+void CCharacterCore::TurnTo(EGravityPreset Preset)
+{
+	// A standing wish re-asks for the gravity the body already falls under every
+	// tick. Recomposing a diagonal frame does not land on the same floats, so the
+	// turn has to be nothing at all rather than nearly nothing.
+	if(Preset == m_Gravity)
+		return;
+
+	const vec2 OwnFrame = ToBodyFrame(m_Vel, m_GravityDown);
+	SetGravity(Preset);
+	m_Vel = FromBodyFrame(OwnFrame, m_GravityDown);
 }
 
 bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down)

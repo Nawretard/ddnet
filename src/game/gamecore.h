@@ -276,6 +276,13 @@ inline void ScaleAlong(vec2 &V, CDirection2 Axis, float Factor)
 	V = Side * dot(V, Side) + Axis.Unit() * (dot(V, Axis.Unit()) * Factor);
 }
 
+// The inverse of FromBodyFrame: a world vector read the way the body reads it. The
+// frame is orthonormal, so the inverse is a component on each of its axes.
+inline vec2 ToBodyFrame(vec2 V, CDirection2 Down)
+{
+	return vec2(Along(V, Down.Side()), Along(V, Down));
+}
+
 // A surface answers with the elasticity of the axis its normal lies on.
 inline float ElasticityAlong(vec2 Normal, vec2 Elasticity)
 {
@@ -358,7 +365,10 @@ public:
 
 	void Init(CWorldCore *pWorld, CCollision *pCollision, CTeamsCore *pTeams = nullptr);
 	void SetCoreWorld(CWorldCore *pWorld, CCollision *pCollision, CTeamsCore *pTeams);
+	// Sets the frame and moves nothing: what the wire and a reset do to a body.
 	void SetGravity(EGravityPreset Preset);
+	// The body itself turning: its momentum comes along into the new frame.
+	void TurnTo(EGravityPreset Preset);
 	void Reset();
 	void TickDeferred();
 	void Tick(bool UseInput, bool DoDeferredTick = true);
