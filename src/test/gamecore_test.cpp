@@ -775,3 +775,19 @@ TEST(GameCore, ReadingAlongAnUprightDownIsReadingTheWorldsY)
 		EXPECT_EQ(Along(V, DefaultGravityDown()), V.y);
 	}
 }
+
+TEST(GameCore, ABodysUpIsTheWayItDoesNotFall)
+{
+	// Named because four places asked for it, all of them about what a body throws
+	// or fights: a hammer's kick, a ninja's throw, and the two clients' copies of
+	// each. Exact for a body that falls down, like everything else on this axis.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+
+	EXPECT_EQ(Core.Up(), vec2(0.0f, -1.0f));
+
+	Core.SetGravity(GRAVITY_RIGHT);
+
+	EXPECT_EQ(Core.Up(), vec2(-1.0f, 0.0f));
+}

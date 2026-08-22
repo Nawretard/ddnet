@@ -386,7 +386,7 @@ void CCharacter::HandleNinja()
 				dbg_assert(m_NumObjectsHit < MAX_CLIENTS, "m_aHitObjects overflow");
 				m_aHitObjects[m_NumObjectsHit++] = ClientId;
 
-				pChr->TakeDamage(m_Core.m_GravityDown.Opposite().Unit() * 10.0f, g_pData->m_Weapons.m_Ninja.m_pBase->m_Damage, m_pPlayer->GetCid(), WEAPON_NINJA);
+				pChr->TakeDamage(m_Core.Up() * 10.0f, g_pData->m_Weapons.m_Ninja.m_pBase->m_Damage, m_pPlayer->GetCid(), WEAPON_NINJA);
 			}
 		}
 
@@ -524,7 +524,7 @@ void CCharacter::FireWeapon()
 		// What a swing does must not depend on which way the swinger falls, so the
 		// kick is thrown along the swinger's own up. Aim never steered it -- the aim
 		// only says where the hitbox goes -- so this is the whole of its direction.
-		const vec2 SwingUp = m_Core.m_GravityDown.Opposite().Unit();
+		const vec2 SwingUp = m_Core.Up();
 
 		CEntity *apEnts[MAX_CLIENTS];
 		int Hits = 0;

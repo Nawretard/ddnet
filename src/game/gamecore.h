@@ -301,6 +301,9 @@ public:
 	// its physics reads. Both are written only by SetGravity, so they cannot drift.
 	EGravityPreset m_Gravity = GRAVITY_DOWN;
 	CDirection2 m_GravityDown = DefaultGravityDown();
+
+	// The way this body calls up: what a swing throws along, and what a jump fights.
+	vec2 Up() const { return m_GravityDown.Opposite().Unit(); }
 	CNetObj_PlayerInput m_Input = {};
 
 	int m_TriggeredEvents;
