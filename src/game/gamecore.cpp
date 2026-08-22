@@ -631,15 +631,6 @@ bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirecti
 	return pCollision->ProbeFace(Pos, Size, Down.Opposite().Unit(), GROUND_REACH, nullptr);
 }
 
-void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel)
-{
-	const float Bounce = -std::clamp(ElasticityAlong(Contact.Normal, Elasticity), -1.0f, 1.0f);
-	if(Contact.Normal.x != 0.0f)
-		pVel->x *= Bounce;
-	else
-		pVel->y *= Bounce;
-}
-
 void SBodyContacts::OnContact(const SContact &Contact, vec2 *pVel, void *pUser)
 {
 	SBodyContacts *pThis = static_cast<SBodyContacts *>(pUser);

@@ -103,8 +103,8 @@ void CParticles::Update(float TimePassed)
 			if(m_aParticles[i].m_Collides)
 			{
 				const float Elasticity = random_float(0.1f, 1.0f);
-				SBodyContacts Contacts = {vec2(Elasticity, Elasticity)};
-				Collision()->MovePoint(&m_aParticles[i].m_Pos, &Vel, SBodyContacts::OnContact, &Contacts);
+				SBounce Bounce = {vec2(Elasticity, Elasticity)};
+				Collision()->MovePoint(&m_aParticles[i].m_Pos, &Vel, SBounce::OnContact, &Bounce);
 			}
 			else
 			{

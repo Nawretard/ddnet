@@ -10,6 +10,8 @@
 #include <engine/map.h>
 #include <engine/shared/config.h>
 
+#include <algorithm>
+
 #include <game/collision.h>
 #include <game/layers.h>
 #include <game/mapitems.h>
@@ -465,6 +467,20 @@ int CCollision::IntersectLineTeleWeapon(vec2 Pos0, vec2 Pos1, vec2 *pOutCollisio
 // TODO: OPT: rewrite this smarter!
 // A point is a box with no size, so the same face probe answers for it. Unlike a box
 // it takes its whole velocity in one step, and a blocked one does not advance at all.
+void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel)
+{
+	const float Bounce = -std::clamp(ElasticityAlong(Contact.Normal, Elasticity), -1.0f, 1.0f);
+	if(Contact.Normal.x != 0.0f)
+		pVel->x *= Bounce;
+	else
+		pVel->y *= Bounce;
+}
+
+void SBounce::OnContact(const SContact &Contact, vec2 *pVel, void *pUser)
+{
+	BounceOffContact(Contact, static_cast<SBounce *>(pUser)->m_Elasticity, pVel);
+}
+
 void CCollision::MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, FContactResponse pfnOnContact, void *pUser) const
 {
 	dbg_assert(pfnOnContact != nullptr, "a sweep needs a contact response");

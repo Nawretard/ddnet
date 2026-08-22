@@ -46,6 +46,28 @@ struct SContact
 // box advancing by at most one pixel can only meet one x face and one y face.
 typedef void (*FContactResponse)(const SContact &Contact, vec2 *pVel, void *pUser);
 
+// A surface answers with the elasticity of the axis its normal lies on.
+inline float ElasticityAlong(vec2 Normal, vec2 Elasticity)
+{
+	return Normal.x != 0.0f ? Elasticity.x : Elasticity.y;
+}
+
+// The ordinary answer to touching a surface: the velocity component along the contact
+// normal flips, scaled by that surface's elasticity. Written per axis rather than as
+// a reflection off the normal, because the two are the same algebra but do not round
+// the same way.
+void BounceOffContact(const SContact &Contact, vec2 Elasticity, vec2 *pVel);
+
+// Everything that moves through the world and bounces: a particle, a laser shot, and
+// a body too. Nothing here knows which way is down, because nothing has to -- a shot
+// does not land on the ground, it only leaves the wall it hit.
+struct SBounce
+{
+	vec2 m_Elasticity;
+
+	static void OnContact(const SContact &Contact, vec2 *pVel, void *pUser);
+};
+
 typedef bool (*CALLBACK_SWITCHACTIVE)(unsigned char Number, void *pUser);
 struct CAntibotMapData;
 

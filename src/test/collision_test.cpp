@@ -40,8 +40,8 @@ TEST(Collision, MoveBoxAccumulatesSubStepsRatherThanAddingVelocityOnce)
 	vec2 Pos(160.0f, 100.0f);
 	vec2 Vel(0.0f, 5.0f);
 
-	SBodyContacts Contacts = {vec2(0.0f, 0.0f)};
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.0f, 0.0f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBounce::OnContact, &Bounce);
 
 	// Six additions of Vel/6 land 1.5e-5 past Pos + Vel.
 	EXPECT_EQ(Pos.x, 160.0f);
@@ -55,8 +55,8 @@ TEST(Collision, MoveBoxBouncesOffTheFloor)
 	vec2 Pos(160.0f, 130.0f);
 	vec2 Vel(0.0f, 51.0f);
 
-	SBodyContacts Contacts = {vec2(0.0f, 0.1f)};
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.0f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBounce::OnContact, &Bounce);
 
 	EXPECT_EQ(Pos.y, 176.782898f);
 	EXPECT_EQ(Vel.y, -5.0999999f);
@@ -69,8 +69,8 @@ TEST(Collision, MoveBoxStopsDeadWhenElasticityIsZero)
 	vec2 Vel(0.0f, 90.0f);
 
 	// The default tuning has ground_elasticity_y 0, so this is the case real play takes.
-	SBodyContacts Contacts = {vec2(0.0f, 0.0f)};
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.0f, 0.0f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBounce::OnContact, &Bounce);
 
 	EXPECT_EQ(Pos.y, 177.143066f);
 	EXPECT_EQ(Vel.y, 0.0f);
@@ -83,8 +83,8 @@ TEST(Collision, MoveBoxBouncesOffAWall)
 	vec2 Pos(250.0f, 100.0f);
 	vec2 Vel(51.0f, 0.0f);
 
-	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.1f, 0.1f)};
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBounce::OnContact, &Bounce);
 
 	EXPECT_EQ(Pos.x, 269.811462f);
 	EXPECT_EQ(Vel.x, -5.0999999f);
@@ -112,8 +112,8 @@ TEST(Collision, MoveBoxReflectsBothAxesWhenOnlyTheDiagonalCollides)
 	ASSERT_FALSE(World.Collision()->TestBox(vec2(Pos.x, Pos.y + Vel.y), Size));
 	ASSERT_FALSE(World.Collision()->TestBox(vec2(Pos.x + Vel.x, Pos.y), Size));
 
-	SBodyContacts Contacts = {vec2(0.03f, 0.06f)};
-	World.Collision()->MoveBox(&Pos, &Vel, Size, SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.03f, 0.06f)};
+	World.Collision()->MoveBox(&Pos, &Vel, Size, SBounce::OnContact, &Bounce);
 
 	EXPECT_EQ(Pos, vec2(145.4f, 145.4f));
 	EXPECT_EQ(Vel.x, -0.0120000001f);
@@ -252,9 +252,9 @@ TEST(Collision, ABounceNeverGivesBackMoreThanItTook)
 	CAsciiWorld World = Room();
 	vec2 Pos(160.0f, 130.0f);
 	vec2 Vel(0.0f, 51.0f);
-	SBodyContacts Contacts = {vec2(0.0f, 5.0f)};
+	SBounce Bounce = {vec2(0.0f, 5.0f)};
 
-	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBodyContacts::OnContact, &Contacts);
+	World.Collision()->MoveBox(&Pos, &Vel, CCharacterCore::PhysicalSizeVec2(), SBounce::OnContact, &Bounce);
 
 	// An elasticity above 1 is clamped, so the floor returns the impact speed and no more.
 	EXPECT_EQ(Vel.y, -51.0f);
@@ -267,8 +267,8 @@ TEST(Collision, MovePointAdvancesFullyWhenNothingIsInTheWay)
 	vec2 Vel(3.0f, 4.0f);
 
 	// Unlike MoveBox, a point takes its whole velocity in one step.
-	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
-	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBounce::OnContact, &Bounce);
 
 	EXPECT_EQ(Pos, vec2(163.0f, 104.0f));
 	EXPECT_EQ(Vel, vec2(3.0f, 4.0f));
@@ -280,8 +280,8 @@ TEST(Collision, MovePointBouncesOffTheFloorWithoutAdvancing)
 	vec2 Pos(160.0f, 190.0f);
 	vec2 Vel(0.0f, 51.0f);
 
-	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
-	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBounce::OnContact, &Bounce);
 
 	// A blocked point stays exactly where it was.
 	EXPECT_EQ(Pos, vec2(160.0f, 190.0f));
@@ -294,8 +294,8 @@ TEST(Collision, MovePointBouncesOffAWall)
 	vec2 Pos(240.0f, 100.0f);
 	vec2 Vel(51.0f, 0.0f);
 
-	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
-	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBounce::OnContact, &Bounce);
 
 	EXPECT_EQ(Pos, vec2(240.0f, 100.0f));
 	EXPECT_EQ(Vel.x, -5.0999999f);
@@ -321,8 +321,8 @@ TEST(Collision, MovePointReflectsBothAxesWhenOnlyTheDiagonalCollides)
 	ASSERT_FALSE(World.Collision()->CheckPoint(Pos.x + Vel.x, Pos.y));
 	ASSERT_FALSE(World.Collision()->CheckPoint(Pos.x, Pos.y + Vel.y));
 
-	SBodyContacts Contacts = {vec2(0.1f, 0.1f)};
-	World.Collision()->MovePoint(&Pos, &Vel, SBodyContacts::OnContact, &Contacts);
+	SBounce Bounce = {vec2(0.1f, 0.1f)};
+	World.Collision()->MovePoint(&Pos, &Vel, SBounce::OnContact, &Bounce);
 
 	EXPECT_EQ(Pos, vec2(158.0f, 158.0f));
 	EXPECT_EQ(Vel.x, -0.400000006f);
