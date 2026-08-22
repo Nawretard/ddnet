@@ -764,3 +764,14 @@ TEST(GameCore, ABodyTheWireSaidNothingAboutIsReadUpright)
 	EXPECT_EQ(GravityOrUpright(NUM_GRAVITY_PRESETS), GRAVITY_DOWN);
 	EXPECT_EQ(GravityOrUpright(GRAVITY_LEFT), GRAVITY_LEFT);
 }
+
+TEST(GameCore, ReadingAlongAnUprightDownIsReadingTheWorldsY)
+{
+	// What every "am I falling?" test rested on before it was asked to name a frame.
+	// The dot product has to land on the same float, or a tee that never left the
+	// upright world would answer differently to a question it has always answered.
+	for(const vec2 V : {vec2(0.5f, 1.0f), vec2(-13.1999998f, 0.0f), vec2(3.0f, -2.4000001f), vec2(0.0f, 0.0f)})
+	{
+		EXPECT_EQ(Along(V, DefaultGravityDown()), V.y);
+	}
+}

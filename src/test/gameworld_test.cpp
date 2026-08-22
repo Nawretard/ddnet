@@ -351,30 +351,77 @@ void HammerTowards(CCharacter *pChr, vec2 AimInOwnFrame)
 
 } // namespace
 
-TEST_F(GameWorld, TheHammerLiftsATeeOffItsOwnGround)
+TEST_F(GameWorld, TheHammerLiftsAlongTheSwingersOwnUp)
 {
-	// The whole point of a hammer is to get someone off the surface they are
-	// resting on, and which surface that is, is the tee being hit to say. Aimed
-	// straight at a tee lying along its own down, the kick is the drag and the
-	// lift on one axis: 10 of impulse plus 1 of force, along that tee's own up.
+	// Aimed straight at a tee lying at its own feet, the kick is the drag and the
+	// lift on one axis: 10 of impulse plus 1 of force, along the swinger's up.
 	CCharacter *pHammer = Placed(GameServer(), 0, vec2(600.0f, 600.0f), GRAVITY_DOWN);
-	CCharacter *pUpright = Placed(GameServer(), 1, vec2(600.0f, 621.0f), GRAVITY_DOWN);
-
+	CCharacter *pTarget = Placed(GameServer(), 1, vec2(600.0f, 621.0f), GRAVITY_DOWN);
 	ASSERT_EQ(pHammer->m_Pos, vec2(600.0f, 600.0f));
-	ASSERT_EQ(pUpright->m_Pos, vec2(600.0f, 621.0f));
+	ASSERT_EQ(pTarget->m_Pos, vec2(600.0f, 621.0f));
 
 	HammerTowards(pHammer, vec2(0.0f, 100.0f));
 
-	EXPECT_EQ(pUpright->Core()->m_Vel, vec2(0.0f, -11.0f));
+	EXPECT_EQ(pTarget->Core()->m_Vel, vec2(0.0f, -11.0f));
 }
 
-TEST_F(GameWorld, TheHammersLiftFollowsTheTeeItHitsNotTheWorld)
+TEST_F(GameWorld, TheSameSwingDoesTheSameThingInEveryFrame)
 {
+	// What a player can do must not depend on which way they fall. The same swing
+	// -- aimed at their own feet, at a tee standing there -- throws that tee the
+	// same way in the swinger's own frame, which is the world's left for one that
+	// falls right.
+	CCharacter *pHammer = Placed(GameServer(), 0, vec2(600.0f, 600.0f), GRAVITY_RIGHT);
+	CCharacter *pTarget = Placed(GameServer(), 1, vec2(621.0f, 600.0f), GRAVITY_DOWN);
+
+	HammerTowards(pHammer, vec2(0.0f, 100.0f));
+
+	EXPECT_EQ(pTarget->Core()->m_Vel, vec2(-11.0f, 0.0f));
+}
+
+TEST_F(GameWorld, TheHammerAsksTheSwingerWhichWayIsUpNotTheTeeItHits)
+{
+	// The two frames disagree here, which is the whole point: the swinger falls
+	// down, the tee it hits falls right. The swinger's up decides.
 	CCharacter *pHammer = Placed(GameServer(), 0, vec2(600.0f, 600.0f), GRAVITY_DOWN);
-	// Falling right: its own up is the world's left, and that is where it must go.
-	CCharacter *pTurned = Placed(GameServer(), 1, vec2(621.0f, 600.0f), GRAVITY_RIGHT);
+	CCharacter *pTarget = Placed(GameServer(), 1, vec2(600.0f, 621.0f), GRAVITY_RIGHT);
 
-	HammerTowards(pHammer, vec2(100.0f, 0.0f));
+	HammerTowards(pHammer, vec2(0.0f, 100.0f));
 
-	EXPECT_EQ(pTurned->Core()->m_Vel, vec2(-11.0f, 0.0f));
+	EXPECT_EQ(pTarget->Core()->m_Vel, vec2(0.0f, -11.0f));
+}
+
+namespace {
+
+/** One tick of a ninja dash, thrown the way its own body reads it. */
+void DashPast(CCharacter *pChr, vec2 DirInWorld)
+{
+	pChr->GiveNinja();
+	pChr->SetNinjaActivationDir(DirInWorld);
+	pChr->SetNinjaCurrentMoveTime(5);
+	pChr->HandleNinja();
+}
+
+} // namespace
+
+TEST_F(GameWorld, TheNinjaThrowsAlongItsOwnUp)
+{
+	CCharacter *pNinja = Placed(GameServer(), 0, vec2(600.0f, 600.0f), GRAVITY_DOWN);
+	CCharacter *pTarget = Placed(GameServer(), 1, vec2(621.0f, 600.0f), GRAVITY_DOWN);
+
+	DashPast(pNinja, vec2(1.0f, 0.0f));
+
+	EXPECT_EQ(pTarget->Core()->m_Vel, vec2(0.0f, -10.0f));
+}
+
+TEST_F(GameWorld, TheNinjaThrowsTheSameWayWhicheverWayItFalls)
+{
+	// Same rule as the hammer, and the same reason: what a player can do must not
+	// change because the world turned under them.
+	CCharacter *pNinja = Placed(GameServer(), 0, vec2(600.0f, 600.0f), GRAVITY_RIGHT);
+	CCharacter *pTarget = Placed(GameServer(), 1, vec2(621.0f, 600.0f), GRAVITY_DOWN);
+
+	DashPast(pNinja, vec2(1.0f, 0.0f));
+
+	EXPECT_EQ(pTarget->Core()->m_Vel, vec2(-10.0f, 0.0f));
 }

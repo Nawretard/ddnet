@@ -386,7 +386,7 @@ void CCharacter::HandleNinja()
 				dbg_assert(m_NumObjectsHit < MAX_CLIENTS, "m_aHitObjects overflow");
 				m_aHitObjects[m_NumObjectsHit++] = ClientId;
 
-				pChr->TakeDamage(vec2(0, -10.0f), g_pData->m_Weapons.m_Ninja.m_pBase->m_Damage, m_pPlayer->GetCid(), WEAPON_NINJA);
+				pChr->TakeDamage(m_Core.m_GravityDown.Opposite().Unit() * 10.0f, g_pData->m_Weapons.m_Ninja.m_pBase->m_Damage, m_pPlayer->GetCid(), WEAPON_NINJA);
 			}
 		}
 
@@ -521,6 +521,11 @@ void CCharacter::FireWeapon()
 		if(m_Core.m_HammerHitDisabled)
 			break;
 
+		// What a swing does must not depend on which way the swinger falls, so the
+		// kick is thrown along the swinger's own up. Aim never steered it -- the aim
+		// only says where the hitbox goes -- so this is the whole of its direction.
+		const vec2 SwingUp = m_Core.m_GravityDown.Opposite().Unit();
+
 		CEntity *apEnts[MAX_CLIENTS];
 		int Hits = 0;
 		int Num = GameServer()->m_World.FindEntities(ProjStartPos, GetProximityRadius() * 0.5f, apEnts,
@@ -539,24 +544,18 @@ void CCharacter::FireWeapon()
 			else
 				GameServer()->CreateHammerHit(ProjStartPos, TeamMask());
 
-			// A hammer lifts a body off the surface it rests on, and which surface
-			// that is, is the body being hit to say. Aim never steered this kick --
-			// it is "away from your own ground, and away from me" -- so the ground
-			// it means is the target's.
-			const vec2 TargetUp = pTarget->m_Core.m_GravityDown.Opposite().Unit();
-
 			vec2 Dir;
 			if(length(pTarget->m_Pos - m_Pos) > 0.0f)
 				Dir = normalize(pTarget->m_Pos - m_Pos);
 			else
-				Dir = TargetUp;
+				Dir = SwingUp;
 
 			float Strength = GetTuning(m_TuneZone)->m_HammerStrength;
 
-			vec2 Temp = pTarget->m_Core.m_Vel + normalize(Dir + TargetUp * 1.1f) * 10.0f;
+			vec2 Temp = pTarget->m_Core.m_Vel + normalize(Dir + SwingUp * 1.1f) * 10.0f;
 			Temp = ClampVel(pTarget->m_MoveRestrictions, Temp);
 			Temp -= pTarget->m_Core.m_Vel;
-			pTarget->TakeDamage((TargetUp + Temp) * Strength, g_pData->m_Weapons.m_Hammer.m_pBase->m_Damage,
+			pTarget->TakeDamage((SwingUp + Temp) * Strength, g_pData->m_Weapons.m_Hammer.m_pBase->m_Damage,
 				m_pPlayer->GetCid(), m_Core.m_ActiveWeapon);
 			pTarget->Unfreeze();
 
@@ -1749,7 +1748,10 @@ void CCharacter::HandleTiles(int Index)
 	// walljump
 	if((m_TileIndex == TILE_WALLJUMP) || (m_TileFIndex == TILE_WALLJUMP))
 	{
-		if(m_Core.m_Vel.y > 0 && m_Core.m_Colliding && m_Core.m_LeftWall)
+		// Falling read on the body's own axis: m_Colliding beside it has been the
+		// body's own side for a while, and half a condition in each frame is a
+		// walljump that arms itself on the wrong tees.
+		if(Along(m_Core.m_Vel, m_Core.m_GravityDown) > 0 && m_Core.m_Colliding && m_Core.m_LeftWall)
 		{
 			m_Core.m_LeftWall = false;
 			m_Core.m_JumpedTotal = m_Core.m_Jumps >= 2 ? m_Core.m_Jumps - 2 : 0;
