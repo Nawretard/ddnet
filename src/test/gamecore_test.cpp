@@ -640,3 +640,35 @@ TEST(GameCore, TurningLeavesTheHookWhereTheWorldPutIt)
 	EXPECT_EQ(Core.m_HookPos, vec2(250.0f, 112.0f));
 	EXPECT_EQ(Core.m_HookDir, vec2(1.0f, 0.0f));
 }
+
+TEST(GameCore, TwoCoresAreTheSameToAClientWhenTheyWriteTheSameItem)
+{
+	// The comparison has to go through the item and not the cores: the wire rounds
+	// the position to whole units, and a body that dead-reckons perfectly still
+	// differs from its reckoning in floats no client will ever see.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	CCharacterCore Nudged = Core;
+	Nudged.m_Pos.x += 0.2f;
+	CCharacterCore Jumped = Core;
+	Jumped.m_Vel.y = -13.1999998f;
+
+	EXPECT_TRUE(SameToAClient(Core, Nudged));
+	EXPECT_FALSE(SameToAClient(Core, Jumped));
+}
+
+TEST(GameCore, TwoCoresThatDifferOnlyInTheirFrameAreNotTheSameToAClient)
+{
+	// The trap dead reckoning fell into: CNetObj_Character carries where a body is
+	// and how fast, never which way it is about to fall. Two cores can write the
+	// same item and be about to move apart, so a reckoning window must not span the
+	// moment they stopped agreeing.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	CCharacterCore Turned = Core;
+	Turned.SetGravity(GRAVITY_LEFT);
+
+	EXPECT_FALSE(SameToAClient(Core, Turned));
+}

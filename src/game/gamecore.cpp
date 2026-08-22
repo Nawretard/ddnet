@@ -7,6 +7,7 @@
 #include "teamscore.h"
 
 #include <base/dbg.h>
+#include <base/mem.h>
 #include <base/str.h>
 
 #include <engine/shared/config.h>
@@ -583,6 +584,23 @@ void CCharacterCore::TurnTo(EGravityPreset Preset)
 	const vec2 OwnFrame = ToBodyFrame(m_Vel, m_GravityDown);
 	SetGravity(Preset);
 	m_Vel = FromBodyFrame(OwnFrame, m_GravityDown);
+}
+
+bool SameToAClient(const CCharacterCore &A, const CCharacterCore &B)
+{
+	// The frame first: the item below says where a body is and how fast, never which
+	// way it is about to fall, so two cores can write the same one and part ways on
+	// the next tick.
+	if(A.m_Gravity != B.m_Gravity)
+		return false;
+
+	CNetObj_CharacterCore AObj;
+	CNetObj_CharacterCore BObj;
+	mem_zero(&AObj, sizeof(AObj));
+	mem_zero(&BObj, sizeof(BObj));
+	A.Write(&AObj);
+	B.Write(&BObj);
+	return mem_comp(&AObj, &BObj, sizeof(AObj)) == 0;
 }
 
 bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down)

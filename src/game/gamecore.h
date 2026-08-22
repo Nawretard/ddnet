@@ -423,6 +423,11 @@ private:
 	FAntiPingInterfereCallback m_AntiPingInterfereCallback = [](int ClientId, bool DisallowReset) {};
 };
 
+// Whether a client could tell these two cores apart, which is what dead reckoning
+// asks: the item a snapshot carries of a core is all a client is given, so anything
+// the two differ in beyond it cannot reach one.
+bool SameToAClient(const CCharacterCore &A, const CCharacterCore &B);
+
 // input count
 struct CInputCount
 {
