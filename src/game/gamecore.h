@@ -352,14 +352,16 @@ public:
 	int m_JumpedTotal;
 	int m_Jumps;
 
-	int m_Direction;
-	int m_Angle;
+	// Reset does not cover these three, so they carry their own start: a body that was
+	// never given an input must not read one out of the memory it was built in.
+	int m_Direction = 0;
+	int m_Angle = 0;
 
 	// The way this body falls, as the preset it was chosen from and as the direction
 	// its physics reads. Both are written only by SetGravity, so they cannot drift.
 	EGravityPreset m_Gravity = GRAVITY_DOWN;
 	CDirection2 m_GravityDown = DefaultGravityDown();
-	CNetObj_PlayerInput m_Input;
+	CNetObj_PlayerInput m_Input = {};
 
 	int m_TriggeredEvents;
 

@@ -7,16 +7,16 @@
 
 #include <gtest/gtest.h>
 
+#include <new>
+
 // Characterization tests, same contract as collision_test.cpp: exact values read
 // off the unmodified implementation, so a refactoring that moves one bit shows up.
 
 namespace {
 
-// Value-initialized: Reset leaves m_Input, m_Direction and m_Angle alone, and none
-// of the three has an initializer, so a default-initialized core reads the stack.
 CCharacterCore SpawnedAt(CWorldCore *pWorld, CCollision *pCollision, vec2 Pos)
 {
-	CCharacterCore Core = CCharacterCore();
+	CCharacterCore Core;
 	Core.Init(pWorld, pCollision, nullptr);
 	Core.Reset();
 	Core.m_Pos = Pos;
@@ -715,5 +715,42 @@ TEST(GameCore, AnEvolvedItemLandsWhereTheBodyItPicturesWouldHave)
 		EXPECT_EQ(Evolved.m_Y, Reckoned.m_Y);
 		EXPECT_EQ(Evolved.m_VelX, Reckoned.m_VelX);
 		EXPECT_EQ(Evolved.m_VelY, Reckoned.m_VelY);
+	}
+}
+
+TEST(GameCore, AFreshCoreMovesTheSameWhateverMemoryItLandsIn)
+{
+	// Reset does not cover every member, so one without an initializer is read from
+	// whatever its storage happened to hold. That is how a body given no input at all
+	// still walked sideways: m_Direction was a leftover.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	alignas(CCharacterCore) unsigned char aQuiet[sizeof(CCharacterCore)];
+	alignas(CCharacterCore) unsigned char aNoisy[sizeof(CCharacterCore)];
+	mem_zero(aQuiet, sizeof(aQuiet));
+	for(unsigned char &Byte : aNoisy)
+	{
+		Byte = 0x5a;
+	}
+
+	CCharacterCore *apCores[2] = {new(aQuiet) CCharacterCore, new(aNoisy) CCharacterCore};
+	for(CCharacterCore *pCore : apCores)
+	{
+		pCore->Init(&WorldCore, World.Collision(), nullptr);
+		pCore->Reset();
+		pCore->m_Pos = MID_ROOM;
+		for(int i = 0; i < 10; i++)
+		{
+			pCore->Tick(false);
+			pCore->Move();
+			pCore->Quantize();
+		}
+	}
+
+	EXPECT_EQ(apCores[0]->m_Pos, apCores[1]->m_Pos);
+	EXPECT_EQ(apCores[0]->m_Vel, apCores[1]->m_Vel);
+	for(CCharacterCore *pCore : apCores)
+	{
+		pCore->~CCharacterCore();
 	}
 }
