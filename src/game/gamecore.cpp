@@ -603,6 +603,29 @@ bool SameToAClient(const CCharacterCore &A, const CCharacterCore &B)
 	return mem_comp(&AObj, &BObj, sizeof(AObj)) == 0;
 }
 
+void EvolveCharacter(CCollision *pCollision, CNetObj_Character *pCharacter, int TargetTick, EGravityPreset Gravity)
+{
+	CWorldCore TempWorld;
+	CTeamsCore TempTeams = CTeamsCore();
+	// Value-initialized: Read fills only what the item carries, and Tick reads more.
+	CCharacterCore TempCore = CCharacterCore();
+	TempCore.Init(&TempWorld, pCollision, &TempTeams);
+	TempCore.Read(pCharacter);
+	// Not a turn: the item's velocity is already in this frame, it just never said so.
+	TempCore.SetGravity(Gravity);
+	TempCore.m_ActiveWeapon = pCharacter->m_Weapon;
+
+	while(pCharacter->m_Tick < TargetTick)
+	{
+		pCharacter->m_Tick++;
+		TempCore.Tick(false);
+		TempCore.Move();
+		TempCore.Quantize();
+	}
+
+	TempCore.Write(pCharacter);
+}
+
 bool StandsOnSurface(const CCollision *pCollision, vec2 Pos, vec2 Size, CDirection2 Down)
 {
 	return pCollision->ProbeFace(Pos, Size, Down.Opposite().Unit(), GROUND_REACH, nullptr);

@@ -1724,23 +1724,14 @@ void CGameClient::InvalidateSnapshot()
 
 void CGameClient::OnNewSnapshot(bool DummySwapped)
 {
-	auto &&Evolve = [this](CNetObj_Character *pCharacter, int Tick) {
-		CWorldCore TempWorld;
-		CCharacterCore TempCore = CCharacterCore();
-		CTeamsCore TempTeams = CTeamsCore();
-		TempCore.Init(&TempWorld, Collision(), &TempTeams);
-		TempCore.Read(pCharacter);
-		TempCore.m_ActiveWeapon = pCharacter->m_Weapon;
-
-		while(pCharacter->m_Tick < Tick)
-		{
-			pCharacter->m_Tick++;
-			TempCore.Tick(false);
-			TempCore.Move();
-			TempCore.Quantize();
-		}
-
-		TempCore.Write(pCharacter);
+	// The frame an item was reckoned in, from the extended object of the same
+	// snapshot. A server that says nothing leaves the body upright, which is what
+	// every item meant before a tee could fall any other way.
+	auto &&GravityIn = [this](int SnapType, int Id) {
+		const CNetObj_DDNetCharacter *pExtended = (const CNetObj_DDNetCharacter *)Client()->SnapFindItem(SnapType, NETOBJTYPE_DDNETCHARACTER, Id);
+		if(pExtended != nullptr && IsGravityPreset(pExtended->m_Gravity))
+			return (EGravityPreset)pExtended->m_Gravity;
+		return GRAVITY_DOWN;
 	};
 
 	InvalidateSnapshot();
@@ -1903,9 +1894,9 @@ void CGameClient::OnNewSnapshot(bool DummySwapped)
 						}
 
 						if(EvolvePrev && m_Snap.m_aCharacters[Item.m_Id].m_Prev.m_Tick)
-							Evolve(&m_Snap.m_aCharacters[Item.m_Id].m_Prev, Client()->PrevGameTick(g_Config.m_ClDummy));
+							EvolveCharacter(Collision(), &m_Snap.m_aCharacters[Item.m_Id].m_Prev, Client()->PrevGameTick(g_Config.m_ClDummy), GravityIn(IClient::SNAP_PREV, Item.m_Id));
 						if(EvolveCur && m_Snap.m_aCharacters[Item.m_Id].m_Cur.m_Tick)
-							Evolve(&m_Snap.m_aCharacters[Item.m_Id].m_Cur, Client()->GameTick(g_Config.m_ClDummy));
+							EvolveCharacter(Collision(), &m_Snap.m_aCharacters[Item.m_Id].m_Cur, Client()->GameTick(g_Config.m_ClDummy), GravityIn(IClient::SNAP_CURRENT, Item.m_Id));
 
 						m_aClients[Item.m_Id].m_Snapped = *((const CNetObj_Character *)Item.m_pData);
 						m_aClients[Item.m_Id].m_Evolved = m_Snap.m_aCharacters[Item.m_Id].m_Cur;

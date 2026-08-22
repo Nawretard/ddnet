@@ -12,14 +12,13 @@
 
 namespace {
 
-// CCharacterCore::Reset does not clear m_Input, so a fresh core reads whatever
-// the stack held.
+// Value-initialized: Reset leaves m_Input, m_Direction and m_Angle alone, and none
+// of the three has an initializer, so a default-initialized core reads the stack.
 CCharacterCore SpawnedAt(CWorldCore *pWorld, CCollision *pCollision, vec2 Pos)
 {
-	CCharacterCore Core;
+	CCharacterCore Core = CCharacterCore();
 	Core.Init(pWorld, pCollision, nullptr);
 	Core.Reset();
-	mem_zero(&Core.m_Input, sizeof(Core.m_Input));
 	Core.m_Pos = Pos;
 	return Core;
 }
@@ -671,4 +670,50 @@ TEST(GameCore, TwoCoresThatDifferOnlyInTheirFrameAreNotTheSameToAClient)
 	Turned.SetGravity(GRAVITY_LEFT);
 
 	EXPECT_FALSE(SameToAClient(Core, Turned));
+}
+
+namespace {
+
+// The server's reckoning core: a body advanced without input, which is what the item
+// a dead-reckoned snapshot carries is a picture of.
+CNetObj_Character ReckonedForward(CAsciiWorld &World, CWorldCore *pWorldCore, EGravityPreset Preset, int Ticks)
+{
+	CCharacterCore Core = SpawnedAt(pWorldCore, World.Collision(), MID_ROOM);
+	Core.SetGravity(Preset);
+	for(int i = 0; i < Ticks; i++)
+	{
+		Core.Tick(false);
+		Core.Move();
+		Core.Quantize();
+	}
+	CNetObj_Character Item;
+	mem_zero(&Item, sizeof(Item));
+	Core.Write(&Item);
+	return Item;
+}
+
+} // namespace
+
+TEST(GameCore, AnEvolvedItemLandsWhereTheBodyItPicturesWouldHave)
+{
+	// The contract dead reckoning rests on: told a body at tick T and left alone, a
+	// client must arrive at the same place the server did. The item says where the
+	// body is and how fast, never which way it falls, so the frame has to be given.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	constexpr int TICKS = 10;
+
+	for(const EGravityPreset Preset : {GRAVITY_DOWN, GRAVITY_LEFT, GRAVITY_UP, GRAVITY_RIGHT})
+	{
+		CNetObj_Character Evolved = ReckonedForward(World, &WorldCore, Preset, 0);
+		Evolved.m_Tick = 0;
+		EvolveCharacter(World.Collision(), &Evolved, TICKS, Preset);
+
+		const CNetObj_Character Reckoned = ReckonedForward(World, &WorldCore, Preset, TICKS);
+		EXPECT_EQ(Evolved.m_Tick, TICKS);
+		EXPECT_EQ(Evolved.m_X, Reckoned.m_X);
+		EXPECT_EQ(Evolved.m_Y, Reckoned.m_Y);
+		EXPECT_EQ(Evolved.m_VelX, Reckoned.m_VelX);
+		EXPECT_EQ(Evolved.m_VelY, Reckoned.m_VelY);
+	}
 }

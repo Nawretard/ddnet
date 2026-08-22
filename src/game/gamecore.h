@@ -428,6 +428,12 @@ private:
 // the two differ in beyond it cannot reach one.
 bool SameToAClient(const CCharacterCore &A, const CCharacterCore &B);
 
+// Re-simulates a dead-reckoned CHARACTER item from its own m_Tick to TargetTick, the
+// way the server's reckoning core did. The item does not carry the frame it was
+// computed in, so it is passed: extrapolating a body upright that falls sideways
+// walks away from the server a little further every tick.
+void EvolveCharacter(CCollision *pCollision, CNetObj_Character *pCharacter, int TargetTick, EGravityPreset Gravity);
+
 // input count
 struct CInputCount
 {
