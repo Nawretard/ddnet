@@ -116,3 +116,21 @@ TEST(Snapshot, AnItemThatStopsShortReadsAsNotToldRatherThanAsZero)
 	EXPECT_EQ(pRead->m_Gravity, GRAVITY_UNTOLD);
 	EXPECT_FALSE(IsGravityPreset(pRead->m_Gravity));
 }
+
+TEST(Snapshot, OnlyAnExtendedObjectIsFreeToChangeWidth)
+{
+	CNetObjHandler Handler;
+
+	// Why the gravity field could be added at all: an extended object is registered
+	// with no static size, so neither end assumes a width and one that grew is read
+	// by one that never heard of the field.
+	EXPECT_EQ(Handler.GetObjSize(NETOBJTYPE_DDNETCHARACTER), 0);
+
+	// CNetObj_PlayerInput is the opposite kind, and m_WantedGravity widened it: a
+	// vanilla object whose width *both* ends register in the snapshot delta's
+	// static-size table, so ours no longer matches an upstream build's. That is
+	// inert for exactly one reason -- no snapshot ever carries an input. Widening
+	// this again, or snapping one, reopens the question against every official
+	// server, and silently: the delta would decode at the wrong offsets.
+	EXPECT_EQ(Handler.GetObjSize(NETOBJTYPE_PLAYERINPUT), 11 * (int)sizeof(int));
+}
