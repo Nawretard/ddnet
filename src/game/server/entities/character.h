@@ -109,6 +109,9 @@ public:
 	void Move(vec2 RelPos);
 
 	void ResetVelocity();
+	/** The frame this body falls in, set as fact — the body does not turn with it.
+	 *  `CCharacterCore::TurnTo` is the body turning under its own input. */
+	void SetGravity(EGravityPreset Preset);
 	void SetVelocity(vec2 NewVelocity);
 	void SetRawVelocity(vec2 NewVelocity);
 	void AddVelocity(vec2 Addition);

@@ -21,6 +21,7 @@
 #include <game/server/gamecontroller.h>
 #include <game/server/gameworld.h>
 #include <game/server/player.h>
+#include <game/gamecore.h>
 #include <game/version.h>
 
 #include <gtest/gtest.h>
@@ -317,4 +318,63 @@ TEST(Tunings, OutOfRangeBecomesIntMin)
 	EXPECT_EQ((float)(Param = -555555555555555.0f), IntMin);
 	EXPECT_EQ((float)(Param = std::numeric_limits<float>::quiet_NaN()), IntMin);
 	EXPECT_EQ((float)(Param = 0.5f), 0.5f);
+}
+
+namespace {
+
+/** A tee that has just spawned where it was put, at rest, holding a hammer. */
+CCharacter *Placed(CGameContext *pGameServer, int ClientId, vec2 Pos, EGravityPreset Preset)
+{
+	pGameServer->CreatePlayer(ClientId, TEAM_GAME, false, -1);
+	CPlayer *pPlayer = pGameServer->m_apPlayers[ClientId];
+	pPlayer->ForceSpawn(Pos);
+	CCharacter *pChr = pPlayer->GetCharacter();
+	pChr->SetActiveWeapon(WEAPON_HAMMER);
+	pChr->SetGravity(Preset);
+	pChr->SetVelocity(vec2(0.0f, 0.0f));
+	return pChr;
+}
+
+// One swing, aimed the way the hammer's own body reads it. Two inputs, because a
+// swing is a *press*: OnDirectInput copies the latest over the previous on its way
+// out, so one call can never read as one.
+void HammerTowards(CCharacter *pChr, vec2 AimInOwnFrame)
+{
+	CNetObj_PlayerInput Input;
+	mem_zero(&Input, sizeof(Input));
+	Input.m_TargetX = (int)AimInOwnFrame.x;
+	Input.m_TargetY = (int)AimInOwnFrame.y;
+	pChr->OnDirectInput(&Input);
+	Input.m_Fire = 1;
+	pChr->OnDirectInput(&Input);
+}
+
+} // namespace
+
+TEST_F(GameWorld, TheHammerLiftsATeeOffItsOwnGround)
+{
+	// The whole point of a hammer is to get someone off the surface they are
+	// resting on, and which surface that is, is the tee being hit to say. Aimed
+	// straight at a tee lying along its own down, the kick is the drag and the
+	// lift on one axis: 10 of impulse plus 1 of force, along that tee's own up.
+	CCharacter *pHammer = Placed(GameServer(), 0, vec2(600.0f, 600.0f), GRAVITY_DOWN);
+	CCharacter *pUpright = Placed(GameServer(), 1, vec2(600.0f, 621.0f), GRAVITY_DOWN);
+
+	ASSERT_EQ(pHammer->m_Pos, vec2(600.0f, 600.0f));
+	ASSERT_EQ(pUpright->m_Pos, vec2(600.0f, 621.0f));
+
+	HammerTowards(pHammer, vec2(0.0f, 100.0f));
+
+	EXPECT_EQ(pUpright->Core()->m_Vel, vec2(0.0f, -11.0f));
+}
+
+TEST_F(GameWorld, TheHammersLiftFollowsTheTeeItHitsNotTheWorld)
+{
+	CCharacter *pHammer = Placed(GameServer(), 0, vec2(600.0f, 600.0f), GRAVITY_DOWN);
+	// Falling right: its own up is the world's left, and that is where it must go.
+	CCharacter *pTurned = Placed(GameServer(), 1, vec2(621.0f, 600.0f), GRAVITY_RIGHT);
+
+	HammerTowards(pHammer, vec2(100.0f, 0.0f));
+
+	EXPECT_EQ(pTurned->Core()->m_Vel, vec2(-11.0f, 0.0f));
 }

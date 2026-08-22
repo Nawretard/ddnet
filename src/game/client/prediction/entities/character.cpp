@@ -336,19 +336,25 @@ void CCharacter::FireWeapon()
 			else
 				GameWorld()->CreatePredictedHammerHitEvent(ProjStartPos, GetCid());
 
+			// A hammer lifts a body off the surface it rests on, and which surface
+			// that is, is the body being hit to say. Aim never steered this kick --
+			// it is "away from your own ground, and away from me" -- so the ground
+			// it means is the target's.
+			const vec2 TargetUp = pTarget->m_Core.m_GravityDown.Opposite().Unit();
+
 			vec2 Dir;
 			if(length(pTarget->m_Pos - m_Pos) > 0.0f)
 				Dir = normalize(pTarget->m_Pos - m_Pos);
 			else
-				Dir = vec2(0.f, -1.f);
+				Dir = TargetUp;
 
 			float Strength = GetTuning(GetOverriddenTuneZone())->m_HammerStrength;
 
-			vec2 Temp = pTarget->m_Core.m_Vel + normalize(Dir + vec2(0.f, -1.1f)) * 10.0f;
+			vec2 Temp = pTarget->m_Core.m_Vel + normalize(Dir + TargetUp * 1.1f) * 10.0f;
 			Temp = ClampVel(pTarget->m_MoveRestrictions, Temp);
 			Temp -= pTarget->m_Core.m_Vel;
 
-			vec2 Force = vec2(0.f, -1.0f) + Temp;
+			vec2 Force = TargetUp + Temp;
 
 			if(GameWorld()->m_WorldConfig.m_IsFNG)
 			{
