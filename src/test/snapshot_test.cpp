@@ -4,6 +4,8 @@
 
 #include <generated/protocol.h>
 
+#include <game/gamecore.h>
+
 #include <gtest/gtest.h>
 
 TEST(Snapshot, CrcOneInt)
@@ -95,4 +97,22 @@ TEST(Snapshot, StorageGet)
 	EXPECT_EQ(Storage.Get(50, nullptr, nullptr, nullptr), -1);
 	EXPECT_EQ(Storage.Get(5, nullptr, nullptr, nullptr), -1);
 	EXPECT_EQ(Storage.Get(25, nullptr, nullptr, nullptr), -1);
+}
+
+TEST(Snapshot, AnItemThatStopsShortReadsAsNotToldRatherThanAsZero)
+{
+	// DDNetCharacter grows a field at a time and is not size-validated, so a server
+	// that predates one sends an item that stops before it. The reader fills what is
+	// missing with the field's declared default -- which is why a field whose zero
+	// means something must default to a value outside its own domain.
+	CNetObjHandler Handler;
+	int aTruncated[(sizeof(CNetObj_DDNetCharacter) / sizeof(int)) - 1] = {};
+	CUnpacker Unpacker;
+	Unpacker.Reset(aTruncated, sizeof(aTruncated));
+
+	const CNetObj_DDNetCharacter *pRead = (const CNetObj_DDNetCharacter *)Handler.SecureUnpackObj(NETOBJTYPE_DDNETCHARACTER, &Unpacker);
+
+	ASSERT_NE(pRead, nullptr);
+	EXPECT_EQ(pRead->m_Gravity, GRAVITY_UNTOLD);
+	EXPECT_FALSE(IsGravityPreset(pRead->m_Gravity));
 }
