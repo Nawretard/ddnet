@@ -754,3 +754,13 @@ TEST(GameCore, AFreshCoreMovesTheSameWhateverMemoryItLandsIn)
 		pCore->~CCharacterCore();
 	}
 }
+
+TEST(GameCore, ABodyTheWireSaidNothingAboutIsReadUpright)
+{
+	// One rule for both clients: an item from a server that predates the field, or
+	// one with no extended object at all, is read the way every item was read before
+	// a tee could fall any other way.
+	EXPECT_EQ(GravityOrUpright(GRAVITY_UNTOLD), GRAVITY_DOWN);
+	EXPECT_EQ(GravityOrUpright(NUM_GRAVITY_PRESETS), GRAVITY_DOWN);
+	EXPECT_EQ(GravityOrUpright(GRAVITY_LEFT), GRAVITY_LEFT);
+}

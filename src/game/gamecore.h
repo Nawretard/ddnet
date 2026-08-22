@@ -226,6 +226,14 @@ inline bool IsGravityPreset(int Value) { return Value >= 0 && Value < NUM_GRAVIT
 // "I was not told" cannot be mistaken for "fall down".
 constexpr int GRAVITY_UNTOLD = -1;
 
+// The frame to read an item in, from what the wire said about it. Being told nothing
+// leaves the body upright, which is what every item meant before a tee could fall
+// any other way -- and it is one rule, so both clients read an old server alike.
+inline EGravityPreset GravityOrUpright(int Told)
+{
+	return IsGravityPreset(Told) ? (EGravityPreset)Told : GRAVITY_DOWN;
+}
+
 // The wire shape of a gravity wish, the same one m_WantedWeapon uses: zero asks for
 // nothing, so a client that never heard of gravity leaves the body's own alone.
 inline int AskForGravity(EGravityPreset Preset) { return Preset + 1; }

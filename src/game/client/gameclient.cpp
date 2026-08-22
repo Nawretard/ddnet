@@ -1729,9 +1729,7 @@ void CGameClient::OnNewSnapshot(bool DummySwapped)
 	// every item meant before a tee could fall any other way.
 	auto &&GravityIn = [this](int SnapType, int Id) {
 		const CNetObj_DDNetCharacter *pExtended = (const CNetObj_DDNetCharacter *)Client()->SnapFindItem(SnapType, NETOBJTYPE_DDNETCHARACTER, Id);
-		if(pExtended != nullptr && IsGravityPreset(pExtended->m_Gravity))
-			return (EGravityPreset)pExtended->m_Gravity;
-		return GRAVITY_DOWN;
+		return GravityOrUpright(pExtended != nullptr ? pExtended->m_Gravity : GRAVITY_UNTOLD);
 	};
 
 	InvalidateSnapshot();
