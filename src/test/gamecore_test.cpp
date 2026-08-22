@@ -266,6 +266,20 @@ vec2 VelocityAfterOneHookedTick(CAsciiWorld &World, CWorldCore *pWorldCore, vec2
 
 constexpr vec2 MID_ROOM = vec2(160.0f, 112.0f);
 
+// The same experiment stated in the body's own frame: the anchor is placed where the
+// body would say it is, and the velocity is read back the way the body reads it.
+vec2 OwnFrameVelocityAfterOneHookedTick(CAsciiWorld &World, CWorldCore *pWorldCore, EGravityPreset Preset, vec2 AnchorInOwnFrame, int Direction)
+{
+	CCharacterCore Core = SpawnedAt(pWorldCore, World.Collision(), MID_ROOM);
+	Core.SetGravity(Preset);
+	Core.m_Input.m_Hook = 1;
+	Core.m_Input.m_Direction = Direction;
+	Core.m_HookState = HOOK_GRABBED;
+	Core.m_HookPos = MID_ROOM + FromBodyFrame(AnchorInOwnFrame, Core.m_GravityDown);
+	Core.Tick(true);
+	return ToBodyFrame(Core.m_Vel, Core.m_GravityDown);
+}
+
 } // namespace
 
 TEST(GameCore, TheHookPullsAgainstGravityHarderThanWithIt)
@@ -588,4 +602,41 @@ TEST(GameCore, AnInputThatAsksForAGravityTurnsTheBodyItMoves)
 	// Turned first, then one tick of the new gravity and of air friction, both read
 	// on the body's own axes.
 	EXPECT_EQ(Core.m_Vel, vec2(-9.5f, -0.5f));
+}
+
+TEST(GameCore, TheHookPullsTheSameWayInEveryFrame)
+{
+	// What "the controls are the same" has to mean for the hook: the drag reads the
+	// body's own up and the body's own sideways, so anchoring 62 above my head pulls
+	// me towards my head by the same amount whichever way my head points.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	const vec2 AboveMyHead = vec2(0.0f, -62.0f);
+
+	// Only the quarter turns: a diagonal frame is exact in neither direction, so an
+	// equality there would be pinning float noise rather than the drag.
+	for(const EGravityPreset Preset : {GRAVITY_DOWN, GRAVITY_RIGHT, GRAVITY_UP, GRAVITY_LEFT})
+	{
+		EXPECT_EQ(OwnFrameVelocityAfterOneHookedTick(World, &WorldCore, Preset, AboveMyHead, 0), vec2(0.0f, -2.5f));
+		// Steering into it keeps 0.95 of the drag rather than 0.75, on the body's axis.
+		EXPECT_EQ(OwnFrameVelocityAfterOneHookedTick(World, &WorldCore, Preset, vec2(90.0f, 0.0f), 1).x, 4.3499999f);
+	}
+}
+
+TEST(GameCore, TurningLeavesTheHookWhereTheWorldPutIt)
+{
+	// The world does not turn -- the view does. A hook is held by a tile, so turning
+	// it with the body would tear it out of the block it is stuck in: the one thing
+	// the player would actually see move against the map.
+	CAsciiWorld World = Room();
+	CWorldCore WorldCore;
+	CCharacterCore Core = SpawnedAt(&WorldCore, World.Collision(), MID_ROOM);
+	Core.m_HookState = HOOK_GRABBED;
+	Core.m_HookPos = vec2(250.0f, 112.0f);
+	Core.m_HookDir = vec2(1.0f, 0.0f);
+
+	Core.TurnTo(GRAVITY_UP);
+
+	EXPECT_EQ(Core.m_HookPos, vec2(250.0f, 112.0f));
+	EXPECT_EQ(Core.m_HookDir, vec2(1.0f, 0.0f));
 }
