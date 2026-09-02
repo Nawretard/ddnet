@@ -1769,8 +1769,12 @@ void CGameClient::WriteDemoTrace()
 		char aDemoName[IO_MAX_PATH_LENGTH];
 		DemoPlayer()->GetDemoName(aDemoName, sizeof(aDemoName));
 		char aHeader[512];
+		// The zoom the camera is *using*, not the knob that was asked for: a
+		// header that records a request can disagree with what happened, and one
+		// that did — by a single row of pixels — cost a day of chasing a drift.
 		str_format(aHeader, sizeof(aHeader),
-			"{\"schema\":1,\"producer\":\"native\",\"demo\":\"%s\"}\n", aDemoName);
+			"{\"schema\":1,\"producer\":\"native\",\"demo\":\"%s\",\"zoom\":%.6f}\n",
+			aDemoName, m_Camera.m_Zoom);
 		io_write(s_DemoTraceFile, aHeader, str_length(aHeader));
 	}
 
