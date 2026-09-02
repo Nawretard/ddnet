@@ -38,6 +38,10 @@
 #include "components/statboard.h"
 #include "components/voting.h"
 #include "lineinput.h"
+
+#if defined(CONF_VIDEORECORDER)
+#include <engine/shared/video.h>
+#endif
 #include "prediction/entities/character.h"
 #include "prediction/entities/projectile.h"
 #include "race.h"
@@ -1781,9 +1785,17 @@ void CGameClient::WriteDemoTrace()
 	// str_format reports the length it *would* have written, so a buffer too
 	// short for MAX_CLIENTS tees emits invalid JSON rather than failing.
 	char aLine[16384];
+	// While a video is being written, the second each tick was drawn at: a
+	// comparison that plays the video back needs the mapping measured, not
+	// assumed from a frame rate.
+	char aVideoTime[64] = "";
+#if defined(CONF_VIDEORECORDER)
+	if(IVideo::Current())
+		str_format(aVideoTime, sizeof(aVideoTime), ",\"videoTime\":%.4f", IVideo::Current()->LocalTime());
+#endif
 	int At = str_format(aLine, sizeof(aLine),
-		"{\"tick\":%d,\"cameraX\":%.3f,\"cameraY\":%.3f,\"tees\":[",
-		Tick, m_Camera.m_Center.x, m_Camera.m_Center.y);
+		"{\"tick\":%d,\"cameraX\":%.3f,\"cameraY\":%.3f%s,\"tees\":[",
+		Tick, m_Camera.m_Center.x, m_Camera.m_Center.y, aVideoTime);
 
 	bool First = true;
 	for(int i = 0; i < MAX_CLIENTS; i++)

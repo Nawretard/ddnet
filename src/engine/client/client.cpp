@@ -3344,10 +3344,26 @@ void CClient::Run()
 		// handle pending demo play
 		if(m_aCmdPlayDemo[0])
 		{
-			const char *pError = DemoPlayer_Play(m_aCmdPlayDemo, IStorage::TYPE_ALL_OR_ABSOLUTE);
+			const char *pError;
+#if defined(CONF_VIDEORECORDER)
+			if(m_aCmdRenderVideo[0])
+			{
+				pError = DemoPlayer_Render(m_aCmdPlayDemo, IStorage::TYPE_ALL_OR_ABSOLUTE, m_aCmdRenderVideo, DEMO_SPEED_INDEX_DEFAULT);
+				m_RenderAndQuit = pError == nullptr;
+			}
+			else
+#endif
+				pError = DemoPlayer_Play(m_aCmdPlayDemo, IStorage::TYPE_ALL_OR_ABSOLUTE);
 			if(pError)
 				log_error("demo_player", "playing passed demo file '%s' failed: %s", m_aCmdPlayDemo, pError);
 			m_aCmdPlayDemo[0] = 0;
+			m_aCmdRenderVideo[0] = 0;
+		}
+
+		if(m_RenderAndQuit && State() != IClient::STATE_DEMOPLAYBACK)
+		{
+			m_RenderAndQuit = false;
+			Quit();
 		}
 
 		// handle pending map edits
@@ -4166,6 +4182,13 @@ void CClient::Con_Play(IConsole::IResult *pResult, void *pUserData)
 	pSelf->HandleDemoPath(pResult->GetString(0));
 }
 
+void CClient::Con_RenderDemo(IConsole::IResult *pResult, void *pUserData)
+{
+	CClient *pSelf = (CClient *)pUserData;
+	pSelf->HandleDemoPath(pResult->GetString(0));
+	str_copy(pSelf->m_aCmdRenderVideo, pResult->GetString(1));
+}
+
 void CClient::Con_DemoPlay(IConsole::IResult *pResult, void *pUserData)
 {
 	CClient *pSelf = (CClient *)pUserData;
@@ -4650,6 +4673,9 @@ void CClient::RegisterCommands()
 	m_pConsole->Register("rcon_auth", "r[password]", CFGFLAG_CLIENT, Con_RconAuth, this, "Authenticate to rcon");
 	m_pConsole->Register("rcon_login", "s[username] r[password]", CFGFLAG_CLIENT, Con_RconLogin, this, "Authenticate to rcon with a username");
 	m_pConsole->Register("play", "r[file]", CFGFLAG_CLIENT | CFGFLAG_STORE, Con_Play, this, "Play back a demo");
+#if defined(CONF_VIDEORECORDER)
+	m_pConsole->Register("render_demo", "s[file] s[video]", CFGFLAG_CLIENT | CFGFLAG_STORE, Con_RenderDemo, this, "Play back a demo into videos/<video>.mp4 instead of onto the screen");
+#endif
 	m_pConsole->Register("record", "?r[file]", CFGFLAG_CLIENT, Con_Record, this, "Start recording a demo");
 	m_pConsole->Register("stoprecord", "", CFGFLAG_CLIENT, Con_StopRecord, this, "Stop recording a demo");
 	m_pConsole->Register("add_demomarker", "", CFGFLAG_CLIENT, Con_AddDemoMarker, this, "Add demo timeline marker");

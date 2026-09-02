@@ -137,6 +137,13 @@ class CClient : public IClient, public CDemoPlayer::IListener
 
 	char m_aCmdConnect[256] = "";
 	char m_aCmdPlayDemo[IO_MAX_PATH_LENGTH] = "";
+	// Set alongside it by `render_demo`: the demo is played into a video rather
+	// than onto the screen, which the menu could ask for and a command line could
+	// not.
+	char m_aCmdRenderVideo[IO_MAX_PATH_LENGTH] = "";
+	// A render asked for on the command line has nobody to close the window when
+	// the recording ends, and the client would sit in the menu for ever.
+	bool m_RenderAndQuit = false;
 	char m_aCmdEditMap[IO_MAX_PATH_LENGTH] = "";
 
 	// map download
@@ -456,6 +463,7 @@ public:
 	static void Con_AddFavorite(IConsole::IResult *pResult, void *pUserData);
 	static void Con_RemoveFavorite(IConsole::IResult *pResult, void *pUserData);
 	static void Con_Play(IConsole::IResult *pResult, void *pUserData);
+	static void Con_RenderDemo(IConsole::IResult *pResult, void *pUserData);
 	static void Con_Record(IConsole::IResult *pResult, void *pUserData);
 	static void Con_StopRecord(IConsole::IResult *pResult, void *pUserData);
 	static void Con_AddDemoMarker(IConsole::IResult *pResult, void *pUserData);
