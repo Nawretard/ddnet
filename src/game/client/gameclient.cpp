@@ -897,6 +897,7 @@ void CGameClient::OnRender()
 	}
 
 	UpdateManagedTeeRenderInfos();
+	WriteDemoTrace();
 }
 
 void CGameClient::OnDummyDisconnect()
@@ -1742,6 +1743,9 @@ static float WrapAngle(float Radians)
 	return Radians - Turn * std::round(Radians / Turn);
 }
 
+// Called at the end of OnRender, never from OnNewSnapshot: the camera a
+// comparison wants is the one that just drew this tick, and OnNewSnapshot runs
+// before it.
 void CGameClient::WriteDemoTrace()
 {
 	if(Client()->State() != IClient::STATE_DEMOPLAYBACK || g_Config.m_ClDemoTrace[0] == '\0')
@@ -1766,9 +1770,6 @@ void CGameClient::WriteDemoTrace()
 		io_write(s_DemoTraceFile, aHeader, str_length(aHeader));
 	}
 
-	// MAX_CLIENTS tees at about a hundred characters each, and str_format reports
-	// the length it *would* have written, so a short buffer would emit invalid
-	// JSON rather than fail.
 	// One pass: the demo player loops, and a second pass appending to the same
 	// file would give a comparison two answers for one tick.
 	static int s_LastTracedTick = -1;
@@ -1777,6 +1778,8 @@ void CGameClient::WriteDemoTrace()
 		return;
 	s_LastTracedTick = Tick;
 
+	// str_format reports the length it *would* have written, so a buffer too
+	// short for MAX_CLIENTS tees emits invalid JSON rather than failing.
 	char aLine[16384];
 	int At = str_format(aLine, sizeof(aLine),
 		"{\"tick\":%d,\"cameraX\":%.3f,\"cameraY\":%.3f,\"tees\":[",
@@ -2576,7 +2579,6 @@ void CGameClient::OnNewSnapshot(bool DummySwapped)
 	m_IsDummySwapping = 0;
 	if(Client()->State() != IClient::STATE_DEMOPLAYBACK)
 		UpdatePrediction();
-	WriteDemoTrace();
 }
 
 std::function<bool(int, int, int, int)> CGameClient::GetScoreComparator(bool TimeScore, bool ReceivedMillisecondFinishTimes, bool Race7)
