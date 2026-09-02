@@ -627,6 +627,8 @@ public:
 	void OnMessage(int MsgId, CUnpacker *pUnpacker, int Conn, bool Dummy) override;
 	void InvalidateSnapshot() override;
 	void OnNewSnapshot(bool DummySwapped) override;
+	/** One JSON line per snapshot tick when cl_demo_trace names a file. */
+	void WriteDemoTrace();
 	void OnPredict() override;
 	void OnActivateEditor() override;
 	void OnDummySwap() override;

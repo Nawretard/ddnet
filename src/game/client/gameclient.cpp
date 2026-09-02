@@ -1310,8 +1310,19 @@ void CGameClient::OnStateChange(int NewState, int OldState)
 		pComponent->OnStateChange(NewState, OldState);
 }
 
+// Writes what this client holds at a snapshot tick, one JSON line, so a replay
+// here and a replay elsewhere can be compared on values rather than on pixels.
+// Off unless cl_demo_trace names a file; demo playback only.
+static IOHANDLE s_DemoTraceFile = nullptr;
+
 void CGameClient::OnShutdown()
 {
+	if(s_DemoTraceFile)
+	{
+		io_close(s_DemoTraceFile);
+		s_DemoTraceFile = nullptr;
+	}
+
 	for(auto &pComponent : m_vpAll)
 		pComponent->OnShutdown();
 
@@ -1720,6 +1731,76 @@ void CGameClient::InvalidateSnapshot()
 	m_Snap.m_SpecInfo.m_Zoom = 1.0f;
 	m_Snap.m_LocalClientId = -1;
 	SnapCollectEntities();
+}
+
+
+// Into (-pi, pi], so an angle that has turned past a full circle is the same
+// number on both sides of a comparison.
+static float WrapAngle(float Radians)
+{
+	const float Turn = 2.0f * pi;
+	return Radians - Turn * std::round(Radians / Turn);
+}
+
+void CGameClient::WriteDemoTrace()
+{
+	if(Client()->State() != IClient::STATE_DEMOPLAYBACK || g_Config.m_ClDemoTrace[0] == '\0')
+		return;
+
+	if(!s_DemoTraceFile)
+	{
+		s_DemoTraceFile = io_open(g_Config.m_ClDemoTrace, IOFLAG_WRITE);
+		if(!s_DemoTraceFile)
+		{
+			log_error("demo_trace", "cannot write '%s'", g_Config.m_ClDemoTrace);
+			g_Config.m_ClDemoTrace[0] = '\0';
+			return;
+		}
+		// The map and its digest are not restated here: whoever compares two
+		// traces was handed the recording and reads them out of it.
+		char aDemoName[IO_MAX_PATH_LENGTH];
+		DemoPlayer()->GetDemoName(aDemoName, sizeof(aDemoName));
+		char aHeader[512];
+		str_format(aHeader, sizeof(aHeader),
+			"{\"schema\":1,\"producer\":\"native\",\"demo\":\"%s\"}\n", aDemoName);
+		io_write(s_DemoTraceFile, aHeader, str_length(aHeader));
+	}
+
+	// MAX_CLIENTS tees at about a hundred characters each, and str_format reports
+	// the length it *would* have written, so a short buffer would emit invalid
+	// JSON rather than fail.
+	// One pass: the demo player loops, and a second pass appending to the same
+	// file would give a comparison two answers for one tick.
+	static int s_LastTracedTick = -1;
+	const int Tick = Client()->GameTick(g_Config.m_ClDummy);
+	if(Tick <= s_LastTracedTick)
+		return;
+	s_LastTracedTick = Tick;
+
+	char aLine[16384];
+	int At = str_format(aLine, sizeof(aLine),
+		"{\"tick\":%d,\"cameraX\":%.3f,\"cameraY\":%.3f,\"tees\":[",
+		Tick, m_Camera.m_Center.x, m_Camera.m_Center.y);
+
+	bool First = true;
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if(!m_Snap.m_aCharacters[i].m_Active)
+			continue;
+		if(At > (int)sizeof(aLine) - 256)
+			break;
+		const CNetObj_Character &Cur = m_Snap.m_aCharacters[i].m_Cur;
+		At += str_format(aLine + At, sizeof(aLine) - At,
+			"%s{\"id\":%d,\"x\":%d,\"y\":%d,\"angle\":%.3f,\"weapon\":%d,\"attackTick\":%d,\"emote\":%d}",
+			First ? "" : ",", i, Cur.m_X, Cur.m_Y, WrapAngle(Cur.m_Angle / 256.0f),
+			Cur.m_Weapon, Cur.m_AttackTick, Cur.m_Emote);
+		First = false;
+	}
+	At += str_copy(aLine + At, "]}\n", sizeof(aLine) - At);
+	io_write(s_DemoTraceFile, aLine, At);
+	// Flushed per line: a run that is killed rather than quit still leaves every
+	// tick it reached, which is what a scripted comparison needs.
+	io_flush(s_DemoTraceFile);
 }
 
 void CGameClient::OnNewSnapshot(bool DummySwapped)
@@ -2495,6 +2576,7 @@ void CGameClient::OnNewSnapshot(bool DummySwapped)
 	m_IsDummySwapping = 0;
 	if(Client()->State() != IClient::STATE_DEMOPLAYBACK)
 		UpdatePrediction();
+	WriteDemoTrace();
 }
 
 std::function<bool(int, int, int, int)> CGameClient::GetScoreComparator(bool TimeScore, bool ReceivedMillisecondFinishTimes, bool Race7)
