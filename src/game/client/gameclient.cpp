@@ -1797,9 +1797,12 @@ void CGameClient::WriteDemoTrace()
 	if(IVideo::Current())
 		str_format(aVideoTime, sizeof(aVideoTime), ",\"videoTime\":%.4f", IVideo::Current()->LocalTime());
 #endif
+	// The zoom on every line, not only in the header: a header is written once,
+	// and a camera that eases to its configured zoom is not at it yet when the
+	// first tick is drawn.
 	int At = str_format(aLine, sizeof(aLine),
-		"{\"tick\":%d,\"cameraX\":%.3f,\"cameraY\":%.3f%s,\"tees\":[",
-		Tick, m_Camera.m_Center.x, m_Camera.m_Center.y, aVideoTime);
+		"{\"tick\":%d,\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f%s,\"tees\":[",
+		Tick, m_Camera.m_Center.x, m_Camera.m_Center.y, m_Camera.m_Zoom, aVideoTime);
 
 	bool First = true;
 	for(int i = 0; i < MAX_CLIENTS; i++)
