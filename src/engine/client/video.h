@@ -50,6 +50,7 @@ public:
 	bool IsRecording() const override { return m_Recording; }
 
 	void NextVideoFrame() override;
+	int64_t EncodedFrameIndex() const override { return (int64_t)m_VideoFrameIndex - 1; }
 	void NextVideoFrameThread() override;
 
 	void NextAudioFrame(ISoundMixFunc Mix) override;

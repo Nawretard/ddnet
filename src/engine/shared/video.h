@@ -22,6 +22,10 @@ public:
 	virtual void NextAudioFrame(ISoundMixFunc Mix) = 0;
 	virtual void NextAudioFrameTimeline(ISoundMixFunc Mix) = 0;
 
+	// Where the frame being drawn now will land in the encoded file, counting
+	// from zero. Negative when it will not be encoded at all.
+	virtual int64_t EncodedFrameIndex() const = 0;
+
 	virtual int64_t Time() const = 0;
 	virtual float LocalTime() const = 0;
 	virtual void SetLocalStartTime(int64_t LocalStartTime) = 0;

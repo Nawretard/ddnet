@@ -1798,10 +1798,11 @@ void CGameClient::WriteDemoTrace()
 	// str_format reports the length it *would* have written, so a buffer too
 	// short for MAX_CLIENTS tees emits invalid JSON rather than failing.
 	char aLine[16384];
-	char aVideoTime[64] = "";
+	char aVideoTime[96] = "";
 #if defined(CONF_VIDEORECORDER)
 	if(IVideo::Current())
-		str_format(aVideoTime, sizeof(aVideoTime), ",\"videoTime\":%.4f", IVideo::Current()->LocalTime());
+		str_format(aVideoTime, sizeof(aVideoTime), ",\"videoTime\":%.4f,\"frame\":%d",
+			IVideo::Current()->LocalTime(), (int)IVideo::Current()->EncodedFrameIndex());
 #endif
 	int At = str_format(aLine, sizeof(aLine),
 		"{\"tick\":%d,\"shownTick\":%.4f,\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f%s,\"tees\":[",
