@@ -1764,8 +1764,6 @@ void CGameClient::WriteDemoTrace()
 			g_Config.m_ClDemoTrace[0] = '\0';
 			return;
 		}
-		// The map and its digest are not restated here: whoever compares two
-		// traces was handed the recording and reads them out of it.
 		char aDemoName[IO_MAX_PATH_LENGTH];
 		DemoPlayer()->GetDemoName(aDemoName, sizeof(aDemoName));
 		char aHeader[512];
@@ -1778,31 +1776,37 @@ void CGameClient::WriteDemoTrace()
 		io_write(s_DemoTraceFile, aHeader, str_length(aHeader));
 	}
 
-	// One pass: the demo player loops, and a second pass appending to the same
-	// file would give a comparison two answers for one tick.
-	static int s_LastTracedTick = -1;
-	const int Tick = Client()->GameTick(g_Config.m_ClDummy);
-	if(Tick <= s_LastTracedTick)
+	const int SnapshotTick = Client()->GameTick(g_Config.m_ClDummy);
+	const int PreviousSnapshotTick = Client()->PrevGameTick(g_Config.m_ClDummy);
+	const float ShownTick = PreviousSnapshotTick +
+				Client()->IntraGameTick(g_Config.m_ClDummy) *
+					(SnapshotTick - PreviousSnapshotTick);
+
+	static int s_LastSnapshotTick = -1;
+	static bool s_PlaybackLooped = false;
+	if(SnapshotTick < s_LastSnapshotTick)
+		s_PlaybackLooped = true;
+	if(s_PlaybackLooped)
 		return;
-	s_LastTracedTick = Tick;
+	s_LastSnapshotTick = SnapshotTick;
+
+	static float s_LastShownTick = -1.0f;
+	if(ShownTick == s_LastShownTick)
+		return;
+	s_LastShownTick = ShownTick;
 
 	// str_format reports the length it *would* have written, so a buffer too
 	// short for MAX_CLIENTS tees emits invalid JSON rather than failing.
 	char aLine[16384];
-	// While a video is being written, the second each tick was drawn at: a
-	// comparison that plays the video back needs the mapping measured, not
-	// assumed from a frame rate.
 	char aVideoTime[64] = "";
 #if defined(CONF_VIDEORECORDER)
 	if(IVideo::Current())
 		str_format(aVideoTime, sizeof(aVideoTime), ",\"videoTime\":%.4f", IVideo::Current()->LocalTime());
 #endif
-	// The zoom on every line, not only in the header: a header is written once,
-	// and a camera that eases to its configured zoom is not at it yet when the
-	// first tick is drawn.
 	int At = str_format(aLine, sizeof(aLine),
-		"{\"tick\":%d,\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f%s,\"tees\":[",
-		Tick, m_Camera.m_Center.x, m_Camera.m_Center.y, m_Camera.m_Zoom, aVideoTime);
+		"{\"tick\":%d,\"shownTick\":%.4f,\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f%s,\"tees\":[",
+		SnapshotTick, ShownTick, m_Camera.m_Center.x, m_Camera.m_Center.y,
+		m_Camera.m_Zoom, aVideoTime);
 
 	bool First = true;
 	for(int i = 0; i < MAX_CLIENTS; i++)
@@ -1820,8 +1824,6 @@ void CGameClient::WriteDemoTrace()
 	}
 	At += str_copy(aLine + At, "]}\n", sizeof(aLine) - At);
 	io_write(s_DemoTraceFile, aLine, At);
-	// Flushed per line: a run that is killed rather than quit still leaves every
-	// tick it reached, which is what a scripted comparison needs.
 	io_flush(s_DemoTraceFile);
 }
 
