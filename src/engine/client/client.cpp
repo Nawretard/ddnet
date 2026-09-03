@@ -3363,6 +3363,15 @@ void CClient::Run()
 		if(m_RenderAndQuit && State() != IClient::STATE_DEMOPLAYBACK)
 		{
 			m_RenderAndQuit = false;
+#if defined(CONF_VIDEORECORDER)
+			// Stopped before quitting, never left to the shutdown: a video is only
+			// a file once its encoder has flushed and written the moov atom, and a
+			// render that quit without this left one ffprobe could not open.
+			if(IVideo::Current())
+			{
+				IVideo::Current()->Stop();
+			}
+#endif
 			Quit();
 		}
 
