@@ -407,6 +407,7 @@ void CVideo::NextVideoFrame()
 {
 	if(m_Recording)
 	{
+		m_MainThreadFrameIndex += 1;
 		m_Time += m_TickTime;
 		m_LocalTime = (m_Time - m_LocalStartTime) / (float)time_freq();
 	}

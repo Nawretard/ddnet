@@ -50,7 +50,7 @@ public:
 	bool IsRecording() const override { return m_Recording; }
 
 	void NextVideoFrame() override;
-	int64_t EncodedFrameIndex() const override { return (int64_t)m_VideoFrameIndex - 1; }
+	int64_t EncodedFrameIndex() const override { return m_MainThreadFrameIndex; }
 	void NextVideoFrameThread() override;
 
 	void NextAudioFrame(ISoundMixFunc Mix) override;
@@ -89,6 +89,9 @@ private:
 	int m_Height;
 	char m_aName[256];
 	uint64_t m_VideoFrameIndex = 0;
+	// Counted where WriteDemoTrace reads it. m_VideoFrameIndex belongs to the
+	// render thread, and a value read across that boundary repeated itself.
+	int64_t m_MainThreadFrameIndex = -1;
 	uint64_t m_AudioFrameIndex = 0;
 
 	int m_FPS;
