@@ -1778,8 +1778,11 @@ void CGameClient::WriteDemoTrace()
 
 	const int SnapshotTick = Client()->GameTick(g_Config.m_ClDummy);
 	const int PreviousSnapshotTick = Client()->PrevGameTick(g_Config.m_ClDummy);
-	const float ShownTick = PreviousSnapshotTick +
-				Client()->IntraGameTick(g_Config.m_ClDummy) *
+	// A tick is an integer plus a fraction, and a float32 keeps 24 bits: past
+	// 16.7 million ticks its steps are 4 apart, so a server running for a week
+	// traces every fourth frame and drops the rest.
+	const double ShownTick = PreviousSnapshotTick +
+				(double)Client()->IntraGameTick(g_Config.m_ClDummy) *
 					(SnapshotTick - PreviousSnapshotTick);
 
 	static int s_LastSnapshotTick = -1;
@@ -1790,7 +1793,7 @@ void CGameClient::WriteDemoTrace()
 		return;
 	s_LastSnapshotTick = SnapshotTick;
 
-	static float s_LastShownTick = -1.0f;
+	static double s_LastShownTick = -1.0;
 	if(ShownTick == s_LastShownTick)
 		return;
 	s_LastShownTick = ShownTick;
