@@ -357,7 +357,7 @@ void CVideo::NextVideoFrameThread()
 	if(m_Recording)
 	{
 		m_VideoFrameIndex += 1;
-		if(m_VideoFrameIndex >= 2)
+		if((int64_t)m_VideoFrameIndex > FRAMES_SKIPPED_BEFORE_ENCODING)
 		{
 			m_ProcessingVideoFrame.fetch_add(1);
 

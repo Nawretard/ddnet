@@ -50,7 +50,7 @@ public:
 	bool IsRecording() const override { return m_Recording; }
 
 	void NextVideoFrame() override;
-	int64_t EncodedFrameIndex() const override { return m_MainThreadFrameIndex; }
+	int64_t EncodedFrameIndex() const override { return m_MainThreadFrameIndex - FRAMES_SKIPPED_BEFORE_ENCODING; }
 	void NextVideoFrameThread() override;
 
 	void NextAudioFrame(ISoundMixFunc Mix) override;
@@ -88,6 +88,10 @@ private:
 	int m_Width;
 	int m_Height;
 	char m_aName[256];
+	// The pipeline needs one frame in hand before it can hand one on, so the
+	// first rendered frame never reaches the file. The thread that skips it and
+	// anyone asking where a picture landed read this same rule.
+	static constexpr int64_t FRAMES_SKIPPED_BEFORE_ENCODING = 1;
 	uint64_t m_VideoFrameIndex = 0;
 	// Counted where WriteDemoTrace reads it. m_VideoFrameIndex belongs to the
 	// render thread, and a value read across that boundary repeated itself.

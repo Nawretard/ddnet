@@ -1805,9 +1805,11 @@ void CGameClient::WriteDemoTrace()
 			IVideo::Current()->LocalTime(), (int)IVideo::Current()->EncodedFrameIndex());
 #endif
 	int At = str_format(aLine, sizeof(aLine),
-		"{\"tick\":%d,\"shownTick\":%.4f,\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f%s,\"tees\":[",
-		SnapshotTick, ShownTick, m_Camera.m_Center.x, m_Camera.m_Center.y,
-		m_Camera.m_Zoom, aVideoTime);
+		"{\"tick\":%d,\"prevTick\":%d,\"intra\":%.6f,\"shownTick\":%.4f,"
+		"\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f%s,\"tees\":[",
+		SnapshotTick, PreviousSnapshotTick,
+		Client()->IntraGameTick(g_Config.m_ClDummy), ShownTick,
+		m_Camera.m_Center.x, m_Camera.m_Center.y, m_Camera.m_Zoom, aVideoTime);
 
 	bool First = true;
 	for(int i = 0; i < MAX_CLIENTS; i++)
