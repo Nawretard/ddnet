@@ -627,7 +627,9 @@ public:
 	void OnMessage(int MsgId, CUnpacker *pUnpacker, int Conn, bool Dummy) override;
 	void InvalidateSnapshot() override;
 	void OnNewSnapshot(bool DummySwapped) override;
-	/** One JSON line per snapshot tick when cl_demo_trace names a file. */
+	/** One JSON line per drawn frame when cl_demo_trace names a file, at most one
+	 *  per shown tick. The tees are the snapshot's and the camera is the frame's,
+	 *  so a line stands at two instants and a reader joins them separately. */
 	void WriteDemoTrace();
 	void OnPredict() override;
 	void OnActivateEditor() override;
