@@ -101,6 +101,9 @@ public:
 	void Init() override;
 	void Render(const CRenderLayerParams &Params) override;
 	bool DoRender(const CRenderLayerParams &Params) override;
+	/** One JSON line per group per drawn frame when cl_group_trace names a file:
+	 *  where this group's art is placed, and the camera it was placed for. */
+	void WriteGroupTrace(const CScreenRect &ScreenRect, const CRenderLayerParams &Params) const;
 	bool IsValid() const override { return m_pGroup != nullptr; }
 	bool IsGroup() const override { return true; }
 	void Unload() override {}

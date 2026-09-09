@@ -1,6 +1,7 @@
 #include "render_layer.h"
 
 #include <base/dbg.h>
+#include <base/io.h>
 #include <base/log.h>
 #include <base/mem.h>
 #include <base/str.h>
@@ -282,11 +283,52 @@ void CRenderLayerGroup::Init()
 	InitCallback();
 }
 
+// Off unless cl_group_trace names a file. A render layer cannot reach the game
+// clock by design, so the line carries the camera it was placed for and a reader
+// pairs it with cl_demo_trace's own by that.
+static IOHANDLE s_GroupTraceFile = nullptr;
+
+void CRenderLayerGroup::WriteGroupTrace(const CScreenRect &ScreenRect, const CRenderLayerParams &Params) const
+{
+	if(g_Config.m_ClGroupTrace[0] == '\0')
+		return;
+	if(!s_GroupTraceFile)
+	{
+		s_GroupTraceFile = io_open(g_Config.m_ClGroupTrace, IOFLAG_WRITE);
+		if(!s_GroupTraceFile)
+		{
+			log_error("group_trace", "cannot write '%s'", g_Config.m_ClGroupTrace);
+			g_Config.m_ClGroupTrace[0] = '\0';
+			return;
+		}
+	}
+	char aLine[512];
+	int At = str_format(aLine, sizeof(aLine),
+		"{\"group\":%d,\"parallaxX\":%d,\"parallaxY\":%d,\"offsetX\":%d,\"offsetY\":%d,"
+		"\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f,"
+		"\"left\":%.3f,\"top\":%.3f,\"width\":%.3f,\"height\":%.3f",
+		m_GroupId, m_pGroup->m_ParallaxX, m_pGroup->m_ParallaxY,
+		m_pGroup->m_OffsetX, m_pGroup->m_OffsetY,
+		Params.m_Center.x, Params.m_Center.y, Params.m_Zoom,
+		ScreenRect.m_TopLeft.x, ScreenRect.m_TopLeft.y,
+		ScreenRect.Width(), ScreenRect.Height());
+	// The window is the other half of where a group's art lands, and it is read
+	// against the game plane rather than this one (`DoRender`).
+	if(m_pGroup->m_Version >= 2 && m_pGroup->m_UseClipping)
+		At += str_format(aLine + At, sizeof(aLine) - At,
+			",\"clipX\":%d,\"clipY\":%d,\"clipW\":%d,\"clipH\":%d",
+			m_pGroup->m_ClipX, m_pGroup->m_ClipY, m_pGroup->m_ClipW, m_pGroup->m_ClipH);
+	At += str_copy(aLine + At, "}\n", sizeof(aLine) - At);
+	io_write(s_GroupTraceFile, aLine, At);
+	io_flush(s_GroupTraceFile);
+}
+
 void CRenderLayerGroup::Render(const CRenderLayerParams &Params)
 {
 	int ParallaxZoom = std::clamp(std::max(m_pGroup->m_ParallaxX, m_pGroup->m_ParallaxY), 0, 100);
 	CScreenRect ScreenRect = Graphics()->MapScreenToWorld(Params.m_Center.x, Params.m_Center.y, m_pGroup->m_ParallaxX, m_pGroup->m_ParallaxY, (float)ParallaxZoom,
 		m_pGroup->m_OffsetX, m_pGroup->m_OffsetY, Graphics()->ScreenAspect(), Params.m_Zoom);
+	WriteGroupTrace(ScreenRect, Params);
 	Graphics()->MapScreen(ScreenRect);
 }
 
