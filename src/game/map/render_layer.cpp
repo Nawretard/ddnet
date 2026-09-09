@@ -365,26 +365,7 @@ void CRenderLayerTile::RenderTileLayer(const ColorRGBA &Color, const CRenderLaye
 	int ScreenRectX1 = std::ceil(ScreenRect.m_BottomRight.x / 32);
 
 	const bool InClipRegion = IsVisibleInClipRegion(m_LayerClip);
-	if(g_Config.m_ClGroupTrace[0] != '\0')
-	{
-		// The window is cut from the screen the *group* mapped, so a layer line
-		// says which tiles this frame asked for and a second client can be held
-		// to the same ones.
-		char aLine[512];
-		int At = str_format(aLine, sizeof(aLine),
-			"{\"what\":\"tiles\",\"group\":%d,\"layer\":%d,"
-			"\"left\":%.3f,\"top\":%.3f,\"right\":%.3f,\"bottom\":%.3f,"
-			"\"tileX0\":%d,\"tileX1\":%d,\"tileY0\":%d,\"tileY1\":%d,"
-			"\"width\":%d,\"height\":%d,\"layerClip\":%d,"
-			"\"r\":%.4f,\"g\":%.4f,\"b\":%.4f,\"a\":%.4f}\n",
-			m_GroupId, m_LayerId,
-			ScreenRect.m_TopLeft.x, ScreenRect.m_TopLeft.y,
-			ScreenRect.m_BottomRight.x, ScreenRect.m_BottomRight.y,
-			ScreenRectX0, ScreenRectX1, ScreenRectY0, ScreenRectY1,
-			(int)Visuals.m_Width, (int)Visuals.m_Height, InClipRegion ? 1 : 0,
-			Color.r, Color.g, Color.b, Color.a);
-		WriteTraceLine(aLine, At);
-	}
+	unsigned int TracedVertices = 0;
 	if(InClipRegion)
 	{
 		size_t X0 = std::max(ScreenRectX0, 0);
@@ -407,6 +388,7 @@ void CRenderLayerTile::RenderTileLayer(const ColorRGBA &Color, const CRenderLaye
 
 				if(NumVertices)
 				{
+					TracedVertices += NumVertices;
 					offset_ptr_size ByteOffset = (offset_ptr_size)Start.IndexBufferByteOffset();
 					Graphics()->RenderTileLayer(Visuals.m_BufferContainerIndex, Color, &ByteOffset, &NumVertices, 1);
 				}
@@ -433,6 +415,7 @@ void CRenderLayerTile::RenderTileLayer(const ColorRGBA &Color, const CRenderLaye
 
 					if(NumVertices)
 					{
+						TracedVertices += NumVertices;
 						vpIndexOffsets.push_back((offset_ptr_size)Start.IndexBufferByteOffset());
 						vDrawCounts.push_back(NumVertices);
 					}
@@ -446,6 +429,26 @@ void CRenderLayerTile::RenderTileLayer(const ColorRGBA &Color, const CRenderLaye
 		}
 	}
 
+	if(g_Config.m_ClGroupTrace[0] != '\0')
+	{
+		// The window is cut from the screen the *group* mapped, so a layer line
+		// says which tiles this frame asked for and a second client can be held
+		// to the same ones.
+		char aLine[512];
+		int At = str_format(aLine, sizeof(aLine),
+			"{\"what\":\"tiles\",\"group\":%d,\"layer\":%d,"
+			"\"left\":%.3f,\"top\":%.3f,\"right\":%.3f,\"bottom\":%.3f,"
+			"\"tileX0\":%d,\"tileX1\":%d,\"tileY0\":%d,\"tileY1\":%d,"
+			"\"width\":%d,\"height\":%d,\"layerClip\":%d,\"vertices\":%u,"
+			"\"r\":%.4f,\"g\":%.4f,\"b\":%.4f,\"a\":%.4f}\n",
+			m_GroupId, m_LayerId,
+			ScreenRect.m_TopLeft.x, ScreenRect.m_TopLeft.y,
+			ScreenRect.m_BottomRight.x, ScreenRect.m_BottomRight.y,
+			ScreenRectX0, ScreenRectX1, ScreenRectY0, ScreenRectY1,
+			(int)Visuals.m_Width, (int)Visuals.m_Height, InClipRegion ? 1 : 0, TracedVertices,
+			Color.r, Color.g, Color.b, Color.a);
+		WriteTraceLine(aLine, At);
+	}
 	if(Params.m_RenderTileBorder && (ScreenRectX1 > (int)Visuals.m_Width || ScreenRectY1 > (int)Visuals.m_Height || ScreenRectX0 < 0 || ScreenRectY0 < 0))
 	{
 		RenderTileBorder(Color, ScreenRectX0, ScreenRectY0, ScreenRectX1, ScreenRectY1, &Visuals);
@@ -659,6 +662,17 @@ bool CRenderLayerTile::DoRender(const CRenderLayerParams &Params)
 	// skip rendering if detail layers if not wanted
 	if(m_Flags & LAYERFLAG_DETAIL && !g_Config.m_GfxHighDetail && Params.m_RenderType != ERenderType::RENDERTYPE_FULL_DESIGN) // detail but no details
 		return false;
+
+	// One layer held out, named as cl_group_trace names it: which layer draws a
+	// thing is answered by taking it away, and a second client can be asked the
+	// same question the same way.
+	if(g_Config.m_ClSkipLayer[0] != '\0')
+	{
+		char aName[16];
+		str_format(aName, sizeof(aName), "%d.%d", m_GroupId, m_LayerId);
+		if(str_comp(aName, g_Config.m_ClSkipLayer) == 0)
+			return false;
+	}
 	return true;
 }
 

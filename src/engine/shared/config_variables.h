@@ -658,6 +658,7 @@ MACRO_CONFIG_INT(ClRaceRecordServerControl, cl_race_record_server_control, 1, 0,
 MACRO_CONFIG_INT(ClDemoName, cl_demo_name, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Save the player name within the demo")
 MACRO_CONFIG_STR(ClDemoTrace, cl_demo_trace, 255, "", CFGFLAG_CLIENT, "Write one JSON line per drawn frame to this file during demo playback")
 MACRO_CONFIG_STR(ClGroupTrace, cl_group_trace, 255, "", CFGFLAG_CLIENT, "Write one JSON line per map group per drawn frame to this file")
+MACRO_CONFIG_STR(ClSkipLayer, cl_skip_layer, 16, "", CFGFLAG_CLIENT, "Do not draw this tile layer, named \"group.layer\" as cl_group_trace names it")
 MACRO_CONFIG_INT(ClRaceGhost, cl_race_ghost, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Enable ghost")
 MACRO_CONFIG_INT(ClRaceGhostServerControl, cl_race_ghost_server_control, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Let the server start the ghost")
 MACRO_CONFIG_INT(ClRaceShowGhost, cl_race_show_ghost, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show ghost")
