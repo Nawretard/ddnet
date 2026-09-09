@@ -288,7 +288,7 @@ void CRenderLayerGroup::Init()
 // pairs it with cl_demo_trace's own by that.
 static IOHANDLE s_GroupTraceFile = nullptr;
 
-void CRenderLayerGroup::WriteGroupTrace(const CScreenRect &ScreenRect, const CRenderLayerParams &Params) const
+static void WriteTraceLine(const char *pLine, int Length)
 {
 	if(g_Config.m_ClGroupTrace[0] == '\0')
 		return;
@@ -302,9 +302,17 @@ void CRenderLayerGroup::WriteGroupTrace(const CScreenRect &ScreenRect, const CRe
 			return;
 		}
 	}
+	io_write(s_GroupTraceFile, pLine, Length);
+	io_flush(s_GroupTraceFile);
+}
+
+void CRenderLayerGroup::WriteGroupTrace(const CScreenRect &ScreenRect, const CRenderLayerParams &Params) const
+{
+	if(g_Config.m_ClGroupTrace[0] == '\0')
+		return;
 	char aLine[512];
 	int At = str_format(aLine, sizeof(aLine),
-		"{\"group\":%d,\"parallaxX\":%d,\"parallaxY\":%d,\"offsetX\":%d,\"offsetY\":%d,"
+		"{\"what\":\"group\",\"group\":%d,\"parallaxX\":%d,\"parallaxY\":%d,\"offsetX\":%d,\"offsetY\":%d,"
 		"\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.6f,"
 		"\"left\":%.3f,\"top\":%.3f,\"width\":%.3f,\"height\":%.3f",
 		m_GroupId, m_pGroup->m_ParallaxX, m_pGroup->m_ParallaxY,
@@ -319,8 +327,7 @@ void CRenderLayerGroup::WriteGroupTrace(const CScreenRect &ScreenRect, const CRe
 			",\"clipX\":%d,\"clipY\":%d,\"clipW\":%d,\"clipH\":%d",
 			m_pGroup->m_ClipX, m_pGroup->m_ClipY, m_pGroup->m_ClipW, m_pGroup->m_ClipH);
 	At += str_copy(aLine + At, "}\n", sizeof(aLine) - At);
-	io_write(s_GroupTraceFile, aLine, At);
-	io_flush(s_GroupTraceFile);
+	WriteTraceLine(aLine, At);
 }
 
 void CRenderLayerGroup::Render(const CRenderLayerParams &Params)
@@ -357,7 +364,28 @@ void CRenderLayerTile::RenderTileLayer(const ColorRGBA &Color, const CRenderLaye
 	int ScreenRectY1 = std::ceil(ScreenRect.m_BottomRight.y / 32);
 	int ScreenRectX1 = std::ceil(ScreenRect.m_BottomRight.x / 32);
 
-	if(IsVisibleInClipRegion(m_LayerClip))
+	const bool InClipRegion = IsVisibleInClipRegion(m_LayerClip);
+	if(g_Config.m_ClGroupTrace[0] != '\0')
+	{
+		// The window is cut from the screen the *group* mapped, so a layer line
+		// says which tiles this frame asked for and a second client can be held
+		// to the same ones.
+		char aLine[512];
+		int At = str_format(aLine, sizeof(aLine),
+			"{\"what\":\"tiles\",\"group\":%d,\"layer\":%d,"
+			"\"left\":%.3f,\"top\":%.3f,\"right\":%.3f,\"bottom\":%.3f,"
+			"\"tileX0\":%d,\"tileX1\":%d,\"tileY0\":%d,\"tileY1\":%d,"
+			"\"width\":%d,\"height\":%d,\"layerClip\":%d,"
+			"\"r\":%.4f,\"g\":%.4f,\"b\":%.4f,\"a\":%.4f}\n",
+			m_GroupId, m_LayerId,
+			ScreenRect.m_TopLeft.x, ScreenRect.m_TopLeft.y,
+			ScreenRect.m_BottomRight.x, ScreenRect.m_BottomRight.y,
+			ScreenRectX0, ScreenRectX1, ScreenRectY0, ScreenRectY1,
+			(int)Visuals.m_Width, (int)Visuals.m_Height, InClipRegion ? 1 : 0,
+			Color.r, Color.g, Color.b, Color.a);
+		WriteTraceLine(aLine, At);
+	}
+	if(InClipRegion)
 	{
 		size_t X0 = std::max(ScreenRectX0, 0);
 		size_t X1 = std::clamp(ScreenRectX1, 0, (int)Visuals.m_Width);
