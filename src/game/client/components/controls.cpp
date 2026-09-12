@@ -2,6 +2,10 @@
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "controls.h"
 
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+void ApplyWebInput(CNetObj_PlayerInput *pInput);
+#endif
+
 #include <base/dbg.h>
 #include <base/mem.h>
 #include <base/time.h>
@@ -283,6 +287,9 @@ int CControls::SnapInput(int *pData)
 			m_aInputData[g_Config.m_ClDummy].m_Direction = -1;
 		if(!m_aInputDirectionLeft[g_Config.m_ClDummy] && m_aInputDirectionRight[g_Config.m_ClDummy])
 			m_aInputData[g_Config.m_ClDummy].m_Direction = 1;
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+		ApplyWebInput(&m_aInputData[g_Config.m_ClDummy]);
+#endif
 
 		// dummy copy moves
 		if(g_Config.m_ClDummyCopyMoves)

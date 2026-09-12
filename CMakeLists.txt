@@ -123,6 +123,7 @@ option(UPNP "Enable UPnP support" OFF)
 option(ANTIBOT "Enable support for a dynamic anticheat library (not provided, see src/antibot for interface if you want to implement your own)" OFF)
 option(HEADLESS_CLIENT "Build the client without graphics" OFF)
 option(CLIENT "Compile client" ON)
+option(EDITOR "Compile the map editor into the client" ON)
 option(SERVER "Compile server" ON)
 option(TOOLS "Compile tools" ON)
 option(DOWNLOAD_GTEST "Download and compile GTest" ${AUTO_DEPENDENCIES_DEFAULT})
@@ -2914,7 +2915,12 @@ if(CLIENT)
     src/generated/client_data7.h
     # tidy-alphabetical-end
   )
-  set(CLIENT_SRC ${ENGINE_CLIENT} ${PLATFORM_CLIENT} ${GAME_CLIENT} ${GAME_EDITOR} ${GAME_MAP} ${GAME_GENERATED_CLIENT})
+  if(EDITOR)
+    set(CLIENT_EDITOR_SRC ${GAME_EDITOR})
+  else()
+    set(CLIENT_EDITOR_SRC ${PROJECT_SOURCE_DIR}/src/game/editor_null.cpp)
+  endif()
+  set(CLIENT_SRC ${ENGINE_CLIENT} ${PLATFORM_CLIENT} ${GAME_CLIENT} ${CLIENT_EDITOR_SRC} ${GAME_MAP} ${GAME_GENERATED_CLIENT})
 
   set(DEPS_CLIENT ${DEPS} ${GLEW_DEP})
 

@@ -152,8 +152,11 @@ void CGameClient::OnConsoleInit()
 					      &m_Particles.m_RenderExtra,
 					      &m_Particles.m_RenderGeneral,
 					      &m_FreezeBars,
-					      &m_DamageInd,
-					      &m_Hud,
+					      &m_DamageInd});
+
+	m_InterfaceFirst = m_vpAll.size();
+
+	m_vpAll.insert(m_vpAll.end(), {&m_Hud,
 					      &m_Spectator,
 					      &m_Emoticon,
 					      &m_InfoMessages,
@@ -298,8 +301,225 @@ void CGameClient::ForceUpdateConsoleRemoteCompletionSuggestions()
 	m_GameConsole.ForceUpdateRemoteCompletionSuggestions();
 }
 
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+static CGameClient *s_pEmscriptenGameClient = nullptr;
+// Read by JS as an Int32Array on the wasm heap: no allocation, no string.
+// Fields, in order: writes, tick, valid, health, armor, ammo, weapon, x, y,
+// velX, velY, renderX, renderY.
+static int32_t s_aWebHud[13] = {0};
+struct SWebInput
+{
+	bool m_Active = false;
+	int m_Direction = 0, m_Jump = 0, m_Hook = 0, m_Fire = 0;
+	int m_WantedWeapon = 0, m_TargetX = 1, m_TargetY = 0;
+};
+static SWebInput s_WebInput;
+// The camera **and the instant it drew**, captured together in the frame that
+// drew them. Asked for afterwards, the instant is the one the client has reached
+// since — a camera of one frame read beside a tick of the next.
+static float s_aBenchCamera[3] = {0};
+static float s_BenchInstant = 0.0f;
+static int64_t s_BenchFrames = 0;
+static float DrawnInstant(CGameClient *pClient);
+void BenchCameraDrew(float CenterX, float CenterY, float Zoom)
+{
+	s_aBenchCamera[0] = CenterX;
+	s_aBenchCamera[1] = CenterY;
+	s_aBenchCamera[2] = Zoom;
+	if(s_pEmscriptenGameClient != nullptr)
+		s_BenchInstant = DrawnInstant(s_pEmscriptenGameClient);
+	++s_BenchFrames;
+}
+static int64_t s_aCompInit[128] = {0};
+static int64_t s_aCompDraw[128] = {0};
+void ComponentInitMark(int Index, int64_t Init, int64_t Draw)
+{
+	if(Index >= 0 && Index < (int)std::size(s_aCompInit))
+	{
+		s_aCompInit[Index] = Init;
+		s_aCompDraw[Index] = Draw;
+	}
+}
+extern "C" {
+// Called from JS: the same entry SDL uses, so a DOM control and a mouse arrive
+// at the client through one path.
+void EmscriptenCallbackAimDelta(float x, float y)
+{
+	if(s_pEmscriptenGameClient != nullptr)
+		s_pEmscriptenGameClient->m_Controls.OnCursorMove(x, y, IInput::CURSOR_MOUSE);
+}
+// Any client console line: kill, emote, zoom, play, demo_speed, every cl_
+// variable. One export instead of one per control.
+void EmscriptenCallbackConsoleExecute(const char *pLine)
+{
+	if(s_pEmscriptenGameClient != nullptr)
+		s_pEmscriptenGameClient->Console()->ExecuteLine(pLine, IConsole::CLIENT_ID_UNSPECIFIED);
+}
+// The instant this picture stands at, in ticks: a whole tick names a bound of
+// the snapshot pair, and a picture is drawn somewhere between them.
+static float DrawnInstant(CGameClient *pClient)
+{
+	IClient *pC = pClient->Client();
+	const int Prev = pC->PrevGameTick(g_Config.m_ClDummy);
+	return Prev + pC->IntraGameTick(g_Config.m_ClDummy) *
+		(pC->GameTick(g_Config.m_ClDummy) - Prev);
+}
+const char *EmscriptenCallbackDrawnFrame()
+{
+	static char s_aBuf[128] = "";
+	if(s_pEmscriptenGameClient != nullptr)
+		str_format(s_aBuf, sizeof(s_aBuf), "%d %.4f %.4f %.4f %.6f %.6f",
+			(int)s_BenchFrames, s_BenchInstant,
+			s_aBenchCamera[0], s_aBenchCamera[1], s_aBenchCamera[2],
+			s_pEmscriptenGameClient->Graphics()->ScreenAspect());
+	return s_aBuf;
+}
+// **Upstream's own shape**: `current first last paused speed`, which is what its
+// replay page reads to drive a seek bar (`public/index.html`,
+// `EmscriptenCallbackDemoInfo`). Kept identical so a rebase onto a build that
+// carries it can drop this one.
+//
+// `current` is the player's clock. What was *drawn* is `DrawnFrame`'s instant,
+// and the two differ by however many frames the picture is behind — which is the
+// gap a pause has to close.
+const char *EmscriptenCallbackDemoInfo()
+{
+	static char s_aBuf[128] = "";
+	s_aBuf[0] = ' ';
+	if(s_pEmscriptenGameClient == nullptr)
+		return s_aBuf;
+	IDemoPlayer *pDemo = s_pEmscriptenGameClient->DemoPlayer();
+	if(pDemo == nullptr || !pDemo->IsPlaying())
+		return s_aBuf;
+	const IDemoPlayer::CInfo *pInfo = pDemo->BaseInfo();
+	str_format(s_aBuf, sizeof(s_aBuf), "%d %d %d %d %.3f",
+		pInfo->m_CurrentTick, pInfo->m_FirstTick, pInfo->m_LastTick,
+		pInfo->m_Paused ? 1 : 0, pInfo->m_Speed);
+	return s_aBuf;
+}
+// **Upstream's own reading, at its own name.** Its replay page waits for this to
+// fall to zero before showing anything: a tee wears the default skin until its
+// own arrives, and a comparison started before then reports a difference in the
+// drawing that is really a difference in what has loaded.
+int EmscriptenCallbackSkinsPending()
+{
+	if(s_pEmscriptenGameClient == nullptr)
+		return -1;
+	const CSkins::CSkinLoadingStats Stats = s_pEmscriptenGameClient->m_Skins.LoadingStats();
+	return (int)(Stats.m_NumPending + Stats.m_NumLoading);
+}
+// Steps the demo player without rewinding: `SetPos` walks from a keyframe, this
+// takes the snapshot already decoded. The tick reached is `DrawnFrame`'s to say.
+void EmscriptenCallbackDemoStep(int Ticks)
+{
+	if(s_pEmscriptenGameClient == nullptr)
+		return;
+	IDemoPlayer *pDemo = s_pEmscriptenGameClient->DemoPlayer();
+	if(pDemo == nullptr || !pDemo->IsPlaying())
+		return;
+	const IDemoPlayer::ETickOffset Offset =
+		Ticks < 0 ? IDemoPlayer::TICK_PREVIOUS : IDemoPlayer::TICK_NEXT;
+	for(int i = 0; i < (Ticks < 0 ? -Ticks : Ticks); i++)
+		pDemo->SeekTick(Offset);
+}
+// Runs the demo player, or stops it, at a speed. A bench that only ever steps
+// cannot play a recording end to end, and `demo_play` toggles — which is no use
+// to a caller that does not know the state it is toggling from.
+void EmscriptenCallbackDemoPlay(int Playing, float Speed)
+{
+	if(s_pEmscriptenGameClient == nullptr)
+		return;
+	IDemoPlayer *pDemo = s_pEmscriptenGameClient->DemoPlayer();
+	if(pDemo == nullptr || !pDemo->IsPlaying())
+		return;
+	pDemo->SetSpeed(Speed);
+	if(Playing)
+		pDemo->Unpause();
+	else
+		pDemo->Pause();
+}
+// Holds the demo player on one tick, so two clients can be asked the same
+// question. The tick asked for is not the instant reached: read `DrawnFrame`.
+int EmscriptenCallbackDemoSeek(int Tick)
+{
+	if(s_pEmscriptenGameClient == nullptr)
+		return -1;
+	IDemoPlayer *pDemo = s_pEmscriptenGameClient->DemoPlayer();
+	if(pDemo == nullptr || !pDemo->IsPlaying())
+		return -1;
+	pDemo->Pause();
+	pDemo->SetPos(Tick);
+	return s_pEmscriptenGameClient->Client()->GameTick(g_Config.m_ClDummy);
+}
+uintptr_t EmscriptenCallbackHudPointer()
+{
+	return (uintptr_t)s_aWebHud;
+}
+}
+void ApplyWebInput(CNetObj_PlayerInput *pInput)
+{
+	if(!s_WebInput.m_Active)
+		return;
+	pInput->m_Direction = s_WebInput.m_Direction;
+	pInput->m_Jump = s_WebInput.m_Jump;
+	pInput->m_Hook = s_WebInput.m_Hook;
+	pInput->m_Fire = s_WebInput.m_Fire;
+	pInput->m_WantedWeapon = s_WebInput.m_WantedWeapon;
+	pInput->m_TargetX = s_WebInput.m_TargetX;
+	pInput->m_TargetY = s_WebInput.m_TargetY;
+}
+extern "C" {
+void EmscriptenCallbackSetInput(int Active, int Direction, int Jump, int Hook,
+	int Fire, int WantedWeapon, int TargetX, int TargetY)
+{
+	s_WebInput.m_Active = Active != 0;
+	s_WebInput.m_Direction = Direction;
+	s_WebInput.m_Jump = Jump;
+	s_WebInput.m_Hook = Hook;
+	s_WebInput.m_Fire = Fire;
+	s_WebInput.m_WantedWeapon = WantedWeapon;
+	s_WebInput.m_TargetX = TargetX;
+	s_WebInput.m_TargetY = TargetY;
+}
+const char *EmscriptenCallbackComponentInit()
+{
+	static char s_aBuf[4096];
+	s_aBuf[0] = '\0';
+	double TotalInit = 0.0, TotalDraw = 0.0;
+	for(size_t i = 0; i < std::size(s_aCompInit); ++i)
+	{
+		if(s_aCompInit[i] == 0 && s_aCompDraw[i] == 0)
+			continue;
+		const double Init = s_aCompInit[i] * 1000.0 / (double)time_freq();
+		const double Draw = s_aCompDraw[i] * 1000.0 / (double)time_freq();
+		TotalInit += Init;
+		TotalDraw += Draw;
+		char aOne[64];
+		str_format(aOne, sizeof(aOne), "%d/%.1f/%.1f ", (int)i, Init, Draw);
+		str_append(s_aBuf, aOne);
+	}
+	char aSum[96];
+	str_format(aSum, sizeof(aSum), "| init %.0f draw %.0f", TotalInit, TotalDraw);
+	str_append(s_aBuf, aSum);
+	return s_aBuf;
+}
+const char *EmscriptenCallbackCameraPos()
+{
+	static char s_aBuf[64] = "";
+	if(s_pEmscriptenGameClient != nullptr)
+		str_format(s_aBuf, sizeof(s_aBuf), "%.2f %.2f",
+			s_pEmscriptenGameClient->m_Camera.m_Center.x,
+			s_pEmscriptenGameClient->m_Camera.m_Center.y);
+	return s_aBuf;
+}
+}
+#endif
+
 void CGameClient::OnInit()
 {
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+	s_pEmscriptenGameClient = this;
+#endif
 	const int64_t OnInitStart = time_get();
 
 	Client()->SetLoadingCallback([this](IClient::ELoadingCallbackDetail Detail) {
@@ -388,7 +608,9 @@ void CGameClient::OnInit()
 	const int NumComponents = ComponentCount();
 	for(int i = NumComponents - 1; i >= 0; --i)
 	{
+		const int64_t CompBefore = time_get();
 		m_vpAll[i]->OnInit();
+		const int64_t CompMid = time_get();
 		// try to render a frame after each component, also flushes GPU uploads
 		if(m_Menus.IsInit())
 		{
@@ -401,6 +623,11 @@ void CGameClient::OnInit()
 			++SkippedComps;
 		}
 		++CompCounter;
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+		ComponentInitMark(i, CompMid - CompBefore, time_get() - CompMid);
+#else
+		(void)CompMid;
+#endif
 	}
 
 	m_GameSkinLoaded = false;
@@ -815,9 +1042,40 @@ void CGameClient::OnRender()
 
 	UpdateSpectatorCursor();
 
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+	{
+		const CNetObj_Character *pChar = m_Snap.m_pLocalCharacter;
+		if(pChar == nullptr && m_Snap.m_SpecInfo.m_Active && m_Snap.m_SpecInfo.m_SpectatorId >= 0)
+			pChar = &m_Snap.m_aCharacters[m_Snap.m_SpecInfo.m_SpectatorId].m_Cur;
+		s_aWebHud[1] = Client()->GameTick(g_Config.m_ClDummy);
+		s_aWebHud[2] = pChar != nullptr ? 1 : 0;
+		if(pChar != nullptr)
+		{
+			s_aWebHud[3] = pChar->m_Health;
+			s_aWebHud[4] = pChar->m_Armor;
+			s_aWebHud[5] = pChar->m_AmmoCount;
+			s_aWebHud[6] = pChar->m_Weapon;
+			s_aWebHud[7] = pChar->m_X;
+			s_aWebHud[8] = pChar->m_Y;
+			s_aWebHud[9] = pChar->m_VelX;
+			s_aWebHud[10] = pChar->m_VelY;
+		}
+		// Where the tee is *drawn*: the snapshot position is a prediction behind,
+		// and a hook traced from it starts where the player no longer is.
+		const int RenderId = m_Snap.m_SpecInfo.m_Active ? m_Snap.m_SpecInfo.m_SpectatorId : m_Snap.m_LocalClientId;
+		if(RenderId >= 0)
+		{
+			s_aWebHud[11] = round_to_int(m_aClients[RenderId].m_RenderPos.x);
+			s_aWebHud[12] = round_to_int(m_aClients[RenderId].m_RenderPos.y);
+		}
+		++s_aWebHud[0];
+	}
+#endif
+
 	// render all systems
-	for(auto &pComponent : m_vpAll)
-		pComponent->OnRender();
+	const size_t Last = g_Config.m_ClRenderWorldOnly ? m_InterfaceFirst : m_vpAll.size();
+	for(size_t i = 0; i < Last; i++)
+		m_vpAll[i]->OnRender();
 
 	// clear all events/input for this frame
 	Input()->Clear();

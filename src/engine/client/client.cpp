@@ -1211,6 +1211,36 @@ const char *CClient::ErrorString() const
 	return m_aNetClient[CONN_MAIN].ErrorString();
 }
 
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+#include <vector>
+static std::vector<std::pair<const char *, int64_t>> s_vBootMarks;
+void BootMark(const char *pName)
+{
+	s_vBootMarks.emplace_back(pName, time_get());
+}
+extern "C" const char *EmscriptenCallbackBootTimeline()
+{
+	static char s_aBuf[1024];
+	s_aBuf[0] = '\0';
+	if(s_vBootMarks.empty())
+		return s_aBuf;
+	const int64_t Start = s_vBootMarks.front().second;
+	for(const auto &[pName, Time] : s_vBootMarks)
+	{
+		char aOne[64];
+		str_format(aOne, sizeof(aOne), "%s:%.0f ", pName,
+			(Time - Start) * 1000.0 / (double)time_freq());
+		str_append(s_aBuf, aOne);
+	}
+	return s_aBuf;
+}
+#else
+#define BootMark(name) \
+	do \
+	{ \
+	} while(0)
+#endif
+
 void CClient::Render()
 {
 	if(m_EditorActive)
@@ -1230,6 +1260,7 @@ const char *CClient::LoadMap(const char *pName, const char *pFilename, const std
 {
 	static char s_aErrorMsg[128];
 
+	BootMark("map-begin");
 	SetState(IClient::STATE_LOADING);
 	SetLoadingStateDetail(IClient::LOADING_STATE_DETAIL_LOADING_MAP);
 	if((bool)m_LoadingCallback)
@@ -1287,6 +1318,7 @@ const char *CClient::LoadMap(const char *pName, const char *pFilename, const std
 	str_format(aBuf, sizeof(aBuf), "loaded map '%s'", pFilename);
 	m_pConsole->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "client", aBuf);
 
+	BootMark("map-end");
 	return nullptr;
 }
 
@@ -3178,9 +3210,11 @@ void CClient::InitInterfaces()
 	m_GhostLoader.Init();
 }
 
+
 void CClient::Run()
 {
 	m_LocalStartTime = m_GlobalStartTime = time_get();
+	BootMark("run");
 	m_aSnapshotParts[0] = 0;
 	m_aSnapshotParts[1] = 0;
 
@@ -3247,6 +3281,7 @@ void CClient::Run()
 		}
 	}
 
+	BootMark("graphics");
 	// make sure the first frame just clears everything to prevent undesired colors when waiting for io
 	Graphics()->Clear(0, 0, 0);
 	Graphics()->Swap();
@@ -3268,6 +3303,7 @@ void CClient::Run()
 
 	// init the input
 	Input()->Init();
+	BootMark("engine");
 
 	// init the editor
 	m_pEditor->Init();
@@ -3286,6 +3322,7 @@ void CClient::Run()
 	Graphics()->AddWindowResizeListener([this] { OnWindowResize(); });
 
 	GameClient()->OnInit();
+	BootMark("gameclient");
 
 	m_Fifo.Init(m_pConsole, g_Config.m_ClInputFifo, CFGFLAG_CLIENT);
 

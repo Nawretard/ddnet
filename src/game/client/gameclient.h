@@ -202,6 +202,7 @@ public:
 
 private:
 	std::vector<class CComponent *> m_vpAll;
+	size_t m_InterfaceFirst = 0;
 	std::vector<class CComponent *> m_vpInput;
 	CNetObjHandler m_NetObjHandler;
 	protocol7::CNetObjHandler m_NetObjHandler7;

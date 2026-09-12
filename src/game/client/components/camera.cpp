@@ -3,6 +3,10 @@
 
 #include "camera.h"
 
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+void BenchCameraDrew(float CenterX, float CenterY, float Zoom);
+#endif
+
 #include "controls.h"
 
 #include <base/log.h>
@@ -290,6 +294,13 @@ void CCamera::UpdateCamera()
 
 void CCamera::OnRender()
 {
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+	struct SAtExit
+	{
+		CCamera *m_pThis;
+		~SAtExit() { BenchCameraDrew(m_pThis->m_Center.x, m_pThis->m_Center.y, m_pThis->m_Zoom); }
+	} AtExit{this};
+#endif
 	if(m_CameraSmoothing)
 	{
 		if(!GameClient()->m_Snap.m_SpecInfo.m_Active)
